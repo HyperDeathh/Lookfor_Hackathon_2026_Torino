@@ -23,10 +23,39 @@ const startTest = async () => {
         throw new Error(`HTTP Error: ${response.status} ${response.statusText}`)
       }
 
-      const json = await response.json()
-      console.log(`🟢 Response: "${json.data.response}"`)
-      console.log(`   Intent: ${json.data.intent}`)
-      return json
+      // Handle NDJSON Stream
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let finalResponse = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // Keep incomplete line
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const event = JSON.parse(line);
+
+            // Log specific events
+            if (event.callbacks && event.callbacks.length > 0) {
+              // Ignore for now in console test
+            }
+            // If it's the final answer chunk (simplified logic)
+            // Just accumulating logging
+          } catch (e) {
+            console.error('Error parsing NDJSON line:', e);
+          }
+        }
+      }
+
+      console.log(`🟢 Stream Complete`);
+      return {}; // return empty or accumulated
     } catch (error) {
       console.error('🔴 Error:', error.message)
     }

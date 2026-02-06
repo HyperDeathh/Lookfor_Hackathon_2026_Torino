@@ -48,6 +48,10 @@ interface ChatMessage {
   text: string
   agentId?: AgentId
   ts: string
+  widget?: {
+    title: string
+    status: 'loading' | 'done' | 'error'
+  }
 }
 
 interface LogEntry {
@@ -533,16 +537,26 @@ export default function Home() {
     setIsLoading(false)
   }
 
-  /* ── Send (real API) ── */
+  /* ── Send (Streaming) ── */
   const sendMessage = async (overrideText?: string) => {
     const text = (overrideText || inputValue).trim()
     if (!text || isLoading || !isActive) return
 
     setInputValue('')
-    addMessage('user', text)
+
+    // Optimistic user message
+    const userMsgId = uid()
+    // We add user message immediately
+    setMessages(prev => [...prev, { id: userMsgId, role: 'user', text, ts: now() }])
+
     setIsLoading(true)
-    setThinkingAgent('router')
+    setThinkingAgent('router') // Start thinking
     addLog('router', 'think', 'Classifying intent…')
+
+    // Placeholder for assistant message (we'll update this as tokens arrive)
+    const assistantMsgId = uid()
+    // We don't add it yet, we wait for first token or final result
+    // Actually, let's wait for first token to add "assistant" message block
 
     try {
       const res = await fetch('/api/agents', {
@@ -558,63 +572,116 @@ export default function Home() {
         }),
       })
 
-      const json = await res.json()
-      if (!json.success) throw new Error(json.error || 'API error')
+      if (!res.body) throw new Error('No response body')
 
-      const { data } = json
-      const resolved = INTENT_TO_AGENT[data.intent] || 'router'
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let done = false
+      let finalContent = ''
+      let currentAgent: AgentId = 'router'
 
-      // Log routing decision
-      addLog('router', 'route', `Intent → ${data.intent}`)
-      setActiveAgent(resolved)
-      setThinkingAgent(resolved)
+      // We will track if we added the assistant message yet
+      let assistantMessageAdded = false
+      let activeWidgetId: string | null = null
 
-      // Process backend logs
-      if (data.logs?.length) {
-        for (const log of data.logs) {
-          if (log.type === 'tool_call' && log.calls) {
-            for (const call of log.calls) {
-              addLog(resolved, 'tool_call', `${call.name}()`, undefined, call.args)
+      while (!done) {
+        const { value, done: doneReading } = await reader.read()
+        done = doneReading
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true })
+          // Split by newline for NDJSON
+          const lines = chunk.split('\n').filter(line => line.trim() !== '')
+
+          for (const line of lines) {
+            try {
+              const event = JSON.parse(line)
+
+              // Handle specific event types from LangGraph
+              const eventType = event.event
+              const eventName = event.name
+              const eventData = event.data
+
+              // --- 1. Router / Agent Detection ---
+              // LangGraph node names: 'router', 'order_management', etc.
+              // We map them to our IDs
+              if (eventType === 'on_chain_start' && eventName) {
+                if (eventName === 'order_management') { setActiveAgent('order'); currentAgent = 'order'; setThinkingAgent('order'); }
+                else if (eventName === 'resolution_refund') { setActiveAgent('refund'); currentAgent = 'refund'; setThinkingAgent('refund'); }
+                else if (eventName === 'subscription_retention') { setActiveAgent('subscription'); currentAgent = 'subscription'; setThinkingAgent('subscription'); }
+                else if (eventName === 'sales_product') { setActiveAgent('sales'); currentAgent = 'sales'; setThinkingAgent('sales'); }
+
+                // If router finishes, we might want to log it
+                if (eventName === 'router') {
+                  addLog('router', 'route', 'Intent classified')
+                }
+              }
+
+              // --- 2. Tool Calls (Widgets + Logs) ---
+              if (eventType === 'on_tool_start') {
+                addLog(currentAgent, 'tool_call', `Executing ${eventName}...`, undefined, eventData.input)
+
+                // Add In-Chat Widget
+                const widgetId = uid()
+                activeWidgetId = widgetId
+                setMessages(prev => [...prev, {
+                  id: widgetId,
+                  role: 'assistant',
+                  text: '',
+                  agentId: currentAgent,
+                  ts: now(),
+                  widget: { title: `Running ${eventName}...`, status: 'loading' }
+                }])
+              }
+
+              if (eventType === 'on_tool_end') {
+                addLog(currentAgent, 'tool_output', `${eventName} finished`, JSON.stringify(eventData.output))
+
+                // Update Widget to Done
+                if (activeWidgetId) {
+                  setMessages(prev => prev.map(m =>
+                    m.id === activeWidgetId
+                      ? { ...m, widget: { title: `Completed ${eventName}`, status: 'done' } }
+                      : m
+                  ))
+                  activeWidgetId = null
+                }
+              }
+
+              // --- 3. Token Streaming ---
+              if (eventType === 'on_chat_model_stream') {
+                // eventData.chunk.content is the token
+                const token = eventData.chunk?.content || ''
+                if (token) {
+                  finalContent += token
+
+                  if (!assistantMessageAdded) {
+                    setMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', text: finalContent, agentId: currentAgent, ts: now() }])
+                    assistantMessageAdded = true
+                  } else {
+                    // Update last message
+                    setMessages(prev => {
+                      // Ensure we don't overwrite a widget message if it was just added
+                      // If the last message is a widget, we need to find the assistant message or add a new one?
+                      // Actually, assistant message ID is stable. We update by ID.
+                      return prev.map(m => m.id === assistantMsgId ? { ...m, text: finalContent, agentId: currentAgent } : m)
+                    })
+                  }
+                }
+              }
+
+              // --- 4. Final Output from Workflow (if needed) ---
+              // Usually the last 'on_chain_end' of the root graph has the final output.
+              // But streaming tokens is better.
+
+            } catch (e) {
+              console.error('Error parsing JSON chunk', e)
             }
-          } else if (log.type === 'tool_output') {
-            addLog(
-              resolved,
-              'tool_output',
-              `${log.name} → response`,
-              typeof log.content === 'string'
-                ? log.content
-                : JSON.stringify(log.content),
-            )
           }
         }
       }
 
-      addLog(resolved, 'result', 'Response generated')
-      
-      // Parse response if it's a JSON string with success/data format
-      let displayResponse = data.response
-      try {
-        const parsed = JSON.parse(data.response)
-        if (parsed && typeof parsed === 'object') {
-          if (parsed.success !== undefined && parsed.data !== undefined) {
-            // It's an API response format, format it nicely
-            if (Array.isArray(parsed.data)) {
-              displayResponse = parsed.data.map((item: Record<string, unknown>) => {
-                if (item.title) return `• ${item.title}`
-                return JSON.stringify(item)
-              }).join('\n')
-            } else if (typeof parsed.data === 'string') {
-              displayResponse = parsed.data
-            } else {
-              displayResponse = JSON.stringify(parsed.data, null, 2)
-            }
-          }
-        }
-      } catch {
-        // Not JSON, use as-is
-      }
-      
-      addMessage('assistant', displayResponse, resolved)
+      addLog(currentAgent, 'result', 'Response complete')
+
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error'
       addLog('router', 'error', msg)
@@ -903,6 +970,56 @@ export default function Home() {
                         ? AGENTS[msg.agentId]
                         : AGENTS.router
 
+                      // --- Rich Content Parser ---
+                      let richContent = null
+                      if (!isUser) {
+                        try {
+                          const trimmed = msg.text.trim()
+                          if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+                            const data = JSON.parse(trimmed)
+                            if (data.type === 'product' && data.product) {
+                              richContent = (
+                                <div className="mt-2 mb-1 p-3 bg-white rounded-xl border border-slate-200 shadow-sm max-w-sm">
+                                  <div className="aspect-square relative rounded-lg overflow-hidden bg-slate-100 mb-2">
+                                    <img src={data.product.image || "/api/placeholder/400/400"} className="object-cover w-full h-full" alt={data.product.name} />
+                                  </div>
+                                  <h3 className="font-semibold text-slate-800 text-sm">{data.product.name}</h3>
+                                  <p className="text-slate-500 text-xs mb-2 line-clamp-2">{data.product.description}</p>
+                                  <div className="flex items-center justify-between mt-2">
+                                    <span className="font-bold text-slate-900">{data.product.price}</span>
+                                    <button className="text-[10px] bg-slate-900 text-white px-3 py-1.5 rounded-full font-medium hover:bg-slate-800">Add to Cart</button>
+                                  </div>
+                                </div>
+                              )
+                            } else if (data.type === 'order' && data.order) {
+                              const steps = ['Confirmed', 'Processing', 'Shipped', 'Delivered']
+                              const currentIdx = steps.indexOf(data.order.status) || 1
+                              richContent = (
+                                <div className="mt-2 mb-1 p-4 bg-white rounded-xl border border-slate-200 shadow-sm w-full">
+                                  <div className="flex justify-between items-center mb-3">
+                                    <div>
+                                      <h3 className="font-semibold text-slate-800 text-sm">Order #{data.order.id}</h3>
+                                      <p className="text-slate-500 text-[10px]">Expected: {data.order.eta}</p>
+                                    </div>
+                                    <div className="text-xs font-bold px-2 py-1 rounded bg-green-100 text-green-700">{data.order.status}</div>
+                                  </div>
+
+                                  <div className="relative h-1.5 bg-slate-100 rounded-full mb-4 overflow-hidden">
+                                    <div className="absolute top-0 left-0 h-full bg-blue-500 transition-all duration-1000" style={{ width: `${(currentIdx / (steps.length - 1)) * 100}%` }}></div>
+                                  </div>
+
+                                  <div className="flex justify-between text-[9px] text-slate-400 font-medium uppercase tracking-wider">
+                                    {steps.map(s => <span key={s} className={data.order.status === s ? 'text-blue-600 font-bold' : ''}>{s}</span>)}
+                                  </div>
+                                </div>
+                              )
+                            }
+                          }
+                        } catch (e) {
+                          // Not JSON, ignore
+                        }
+                      }
+
                       return (
                         <motion.div
                           key={msg.id}
@@ -941,23 +1058,48 @@ export default function Home() {
                                 {agent.name} <span className="text-slate-300 mx-1">·</span> {agent.role}
                               </span>
                             )}
+
+                            {/* --- WIDGET CARD (Live Data) --- */}
+                            {msg.widget && (
+                              <motion.div
+                                className="mb-2 p-3 bg-white border border-slate-200 rounded-xl shadow-sm flex items-center gap-3 overflow-hidden relative"
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                              >
+                                {msg.widget.status === 'loading' && (
+                                  <div className="absolute top-0 left-0 h-0.5 bg-slate-100 w-full overflow-hidden">
+                                    <div className="h-full bg-blue-500 w-1/3 animate-[shimmer_1s_infinite_linear]"></div>
+                                  </div>
+                                )}
+
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.widget.status === 'done' ? 'bg-green-100 text-green-600' : 'bg-blue-50 text-blue-600'}`}>
+                                  {msg.widget.status === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-semibold text-slate-700 truncate">{msg.widget.title}</p>
+                                  <p className="text-[10px] text-slate-500">{msg.widget.status === 'loading' ? 'Processing...' : 'Completed'}</p>
+                                </div>
+                              </motion.div>
+                            )}
+
                             <div
-                              className={`px-4 py-3 text-[14px] leading-relaxed ${
-                                isUser
-                                  ? 'bg-slate-900 text-white rounded-2xl rounded-tr-sm'
-                                  : 'border text-slate-700 rounded-2xl rounded-tl-sm shadow-sm'
-                              }`}
+                              className={`px-4 py-3 text-[14px] leading-relaxed ${isUser
+                                ? 'bg-slate-900 text-white rounded-2xl rounded-tr-sm'
+                                : 'border text-slate-700 rounded-2xl rounded-tl-sm shadow-sm'
+                                }`}
                               style={
                                 !isUser
                                   ? {
-                                      backgroundColor: `${agent.accent}08`,
-                                      borderColor: `${agent.accent}20`,
-                                    }
+                                    backgroundColor: `${agent.accent}08`,
+                                    borderColor: `${agent.accent}20`,
+                                  }
                                   : undefined
                               }
                             >
                               {isUser ? (
                                 msg.text
+                              ) : richContent ? (
+                                richContent
                               ) : (
                                 <div className="prose-agent">
                                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -974,104 +1116,132 @@ export default function Home() {
                       )
                     })}
                   </AnimatePresence>
-
-                  {/* Contextual typing indicator */}
-                  {thinkingAgent && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="flex items-center gap-3"
-                    >
-                      <div
-                        className="w-8 h-8 rounded-full overflow-hidden border-2 flex-shrink-0"
-                        style={{
-                          borderColor: `${AGENTS[thinkingAgent].accent}40`,
-                        }}
-                      >
-                        <img
-                          src={AGENTS[thinkingAgent].avatar}
-                          alt=""
-                          className="w-full h-full"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-full px-4 py-2 shadow-sm">
-                        <Loader2
-                          className="w-3.5 h-3.5 animate-spin"
-                          style={{ color: AGENTS[thinkingAgent].accent }}
-                        />
-                        <span className="text-[12px] text-slate-500">
-                          {AGENTS[thinkingAgent].thinkingText}
-                        </span>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  <div ref={chatEndRef} />
-                </div>
-              </div>
-
-              {/* Input area (fixed at bottom) */}
-              <div className="flex-shrink-0 px-6 py-4 bg-white/80 backdrop-blur-sm border-t border-slate-200/60">
-                <div className="max-w-2xl mx-auto">
-                  {/* Agent-colored suggestion chips */}
-                  {messages.length <= 1 && !isLoading && (
-                    <div className="flex gap-2 mb-3 flex-wrap">
-                      {suggestions.map((s, i) => (
-                        <button
-                          key={i}
-                          onClick={() => sendMessage(s.text)}
-                          className="flex items-center gap-1.5 text-[11px] font-medium border rounded-full px-3 py-1.5 transition-all hover:shadow-md active:scale-95"
-                          style={{
-                            color: s.color,
-                            borderColor: `${s.color}30`,
-                            backgroundColor: `${s.color}08`,
-                          }}
-                        >
-                          <s.icon className="w-3 h-3" />
-                          {s.text}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Input field */}
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault()
-                      sendMessage()
-                    }}
+                {/* Contextual typing indicator */}
+                {thinkingAgent && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     className="flex items-center gap-3"
                   >
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      disabled={isLoading}
-                      placeholder={isLoading ? `${AGENTS[thinkingAgent || activeAgent].name} is thinking…` : 'Type your message…'}
-                      className="flex-1 px-4 py-3 text-sm bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 transition-all disabled:opacity-50 placeholder:text-slate-300"
+                    <div
+                      className="w-8 h-8 rounded-full overflow-hidden border-2 flex-shrink-0"
                       style={{
-                        borderColor: isLoading ? `${AGENTS[thinkingAgent || activeAgent].accent}40` : undefined,
+                        borderColor: `${AGENTS[thinkingAgent].accent}40`,
                       }}
-                    />
-                    <button
-                      type="submit"
-                      disabled={!inputValue.trim() || isLoading}
-                      className="w-11 h-11 rounded-xl bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0"
                     >
-                      {isLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Send className="w-4 h-4" />
-                      )}
-                    </button>
-                  </form>
-                </div>
+                      <img
+                        src={AGENTS[thinkingAgent].avatar}
+                        alt=""
+                        className="w-full h-full"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-full px-4 py-2 shadow-sm">
+                      <Loader2
+                        className="w-3.5 h-3.5 animate-spin"
+                        style={{ color: AGENTS[thinkingAgent].accent }}
+                      />
+                      <span className="text-[12px] text-slate-500">
+                        {AGENTS[thinkingAgent].thinkingText}
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
+
+                <div ref={chatEndRef} />
               </div>
-            </>
+            </div>
+
+          {/* Input area (fixed at bottom) */}
+          <div className="flex-shrink-0 px-6 py-4 bg-white/80 backdrop-blur-sm border-t border-slate-200/60">
+            <div className="max-w-2xl mx-auto">
+              {/* Agent-colored suggestion chips */}
+              {messages.length <= 1 && !isLoading && (
+                <div className="flex gap-2 mb-3 flex-wrap">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={() => sendMessage(s.text)}
+                      className="flex items-center gap-1.5 text-[11px] font-medium border rounded-full px-3 py-1.5 transition-all hover:shadow-md active:scale-95"
+                      style={{
+                        color: s.color,
+                        borderColor: `${s.color}30`,
+                        backgroundColor: `${s.color}08`,
+                      }}
+                    >
+                      <s.icon className="w-3 h-3" />
+                      {s.text}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Magic Input Autocomplete */}
+              {inputValue.endsWith('#') && (
+                <div className="absolute bottom-full left-6 mb-2 bg-white border border-slate-200 rounded-xl shadow-lg p-2 min-w-[200px] animate-in slide-in-from-bottom-2 fade-in duration-200">
+                  <p className="text-[9px] font-semibold text-slate-400 px-2 mb-1 uppercase tracking-wider">Recent Orders</p>
+                  <button onClick={() => setInputValue(p => p + '1001 ')} className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg transition-colors flex items-center justify-between group">
+                    <span>Order #1001</span>
+                    <span className="text-[10px] text-slate-400 group-hover:text-blue-500">Processing</span>
+                  </button>
+                  <button onClick={() => setInputValue(p => p + '1002 ')} className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg transition-colors flex items-center justify-between group">
+                    <span>Order #1002</span>
+                    <span className="text-[10px] text-slate-400 group-hover:text-green-500">Delivered</span>
+                  </button>
+                </div>
+              )}
+
+              {inputValue.endsWith('/') && (
+                <div className="absolute bottom-full left-6 mb-2 bg-white border border-slate-200 rounded-xl shadow-lg p-2 min-w-[200px] animate-in slide-in-from-bottom-2 fade-in duration-200">
+                  <p className="text-[9px] font-semibold text-slate-400 px-2 mb-1 uppercase tracking-wider">System Commands</p>
+                  <button onClick={() => { resetSession(); setInputValue('') }} className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-2 text-red-600">
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>/reset</span>
+                  </button>
+                  <button onClick={() => setInputValue('')} className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-2 text-slate-600">
+                    <Terminal className="w-3.5 h-3.5" />
+                    <span>/debug</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Input field */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  sendMessage()
+                }}
+                className="flex items-center gap-3"
+              >
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  disabled={isLoading}
+                  placeholder={isLoading ? `${AGENTS[thinkingAgent || activeAgent].name} is thinking…` : 'Type your message…'}
+                  className="flex-1 px-4 py-3 text-sm bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 transition-all disabled:opacity-50 placeholder:text-slate-300"
+                  style={{
+                    borderColor: isLoading ? `${AGENTS[thinkingAgent || activeAgent].accent}40` : undefined,
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={!inputValue.trim() || isLoading}
+                  className="w-11 h-11 rounded-xl bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </button>
+              </form>
+            </div>
+          </div>
+        </>
           )}
-        </div>
-      </main>
     </div>
+      </main >
+    </div >
   )
 }

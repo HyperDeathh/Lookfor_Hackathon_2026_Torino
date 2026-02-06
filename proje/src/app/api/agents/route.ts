@@ -38,59 +38,50 @@ export async function POST(request: Request) {
       }
     }
 
-    // Initialize state with customer info if provided
-    // Note: With checkpointer, the state is loaded from memory if thread_id exists.
-    // We only need to provide new messages.
-    // If we want to UPDATE customerInfo mid-session, we can include it.
     const inputState = {
       messages: [new HumanMessage(message)],
-      // Intent/customerInfo will be merged/overwritten if provided, or kept from history
       ...(customerInfo ? { customerInfo } : {})
     }
 
-    // Run the graph
-    // We use .invoke() to get the final state.
-    // To stream logs in real-time would require .stream() and Server-Sent Events (SSE) or AI SDK streaming.
-    // For now, we return the full execution log at the end.
-    const result = await app.invoke(inputState, config)
+    // Create a streaming response
+    const encoder = new TextEncoder()
+    const customStream = new TransformStream({
+      async transform(chunk, controller) {
+        // Chunk is an event from streamEvents
+        // We will format it as Server-Sent Events or just NDJSON
+        // Let's use NDJSON for simplicity in the frontend parser
+        const str = JSON.stringify(chunk) + '\n'
+        controller.enqueue(encoder.encode(str))
+      }
+    })
 
-    const lastMessage = result.messages[result.messages.length - 1]
-    const content =
-      typeof lastMessage.content === 'string'
-        ? lastMessage.content
-        : JSON.stringify(lastMessage.content)
+    const writer = customStream.writable.getWriter()
 
-    // Extract logs from message history (Tool calls and results)
-    const executionLogs = result.messages
-      .map((msg: BaseMessage) => {
-        if (msg instanceof ToolMessage) {
-          return {
-            type: 'tool_output',
-            name: msg.name,
-            content: msg.content
+      // Start streaming in the background (fire and forget from the request handler perspective, but keeps stream open)
+      ; (async () => {
+        try {
+          const stream = await app.streamEvents(inputState, {
+            ...config,
+            version: 'v2'
+          })
+
+          for await (const event of stream) {
+            await writer.write(event)
           }
+        } catch (e: any) {
+          console.error('Streaming Error:', e)
+          const errorEvent = { event: 'error', data: e.message }
+          await writer.write(errorEvent)
+        } finally {
+          await writer.close()
         }
-        if (
-          msg instanceof AIMessage &&
-          msg.tool_calls &&
-          msg.tool_calls.length > 0
-        ) {
-          return {
-            type: 'tool_call',
-            calls: msg.tool_calls
-          }
-        }
-        return null
-      })
-      .filter(Boolean)
+      })()
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        response: content,
-        intent: result.intent,
-        threadId: config.configurable.thread_id,
-        logs: executionLogs
+    return new Response(customStream.readable, {
+      headers: {
+        'Content-Type': 'application/x-ndjson',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive'
       }
     })
   } catch (error) {
