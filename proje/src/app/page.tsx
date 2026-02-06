@@ -590,7 +590,31 @@ export default function Home() {
       }
 
       addLog(resolved, 'result', 'Response generated')
-      addMessage('assistant', data.response, resolved)
+      
+      // Parse response if it's a JSON string with success/data format
+      let displayResponse = data.response
+      try {
+        const parsed = JSON.parse(data.response)
+        if (parsed && typeof parsed === 'object') {
+          if (parsed.success !== undefined && parsed.data !== undefined) {
+            // It's an API response format, format it nicely
+            if (Array.isArray(parsed.data)) {
+              displayResponse = parsed.data.map((item: Record<string, unknown>) => {
+                if (item.title) return `• ${item.title}`
+                return JSON.stringify(item)
+              }).join('\n')
+            } else if (typeof parsed.data === 'string') {
+              displayResponse = parsed.data
+            } else {
+              displayResponse = JSON.stringify(parsed.data, null, 2)
+            }
+          }
+        }
+      } catch {
+        // Not JSON, use as-is
+      }
+      
+      addMessage('assistant', displayResponse, resolved)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error'
       addLog('router', 'error', msg)
