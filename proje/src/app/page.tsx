@@ -34,6 +34,7 @@ type AgentId = 'router' | 'order' | 'refund' | 'subscription' | 'sales'
 interface AgentMeta {
   id: AgentId
   label: string
+  name: string
   role: string
   accent: string
   icon: React.ElementType
@@ -67,47 +68,52 @@ const AGENTS: Record<AgentId, AgentMeta> = {
   router: {
     id: 'router',
     label: 'Router',
+    name: 'Eddie',
     role: 'Orchestrator',
     accent: '#64748b',
     icon: Workflow,
-    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Router&backgroundColor=e2e8f0&glassesProbability=100',
-    thinkingText: 'Router is analyzing your request…',
+    avatar: '/avatars/gri-route.png',
+    thinkingText: 'Eddie is analyzing your request…',
   },
   order: {
     id: 'order',
     label: 'Orders',
+    name: 'Kate',
     role: 'Shipping & Tracking',
     accent: '#3b82f6',
     icon: Box,
-    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Order&backgroundColor=dbeafe&glassesProbability=100',
-    thinkingText: 'Orders is checking your shipment…',
+    avatar: '/avatars/mavi-order.png',
+    thinkingText: 'Kate is checking your shipment…',
   },
   refund: {
     id: 'refund',
     label: 'Refunds',
+    name: 'Jack',
     role: 'Returns & Credits',
     accent: '#f59e0b',
     icon: ShieldCheck,
-    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Refund&backgroundColor=fef3c7&glassesProbability=100',
-    thinkingText: 'Refunds is reviewing your case…',
+    avatar: '/avatars/turuncu-refund.png',
+    thinkingText: 'Jack is reviewing your case…',
   },
   subscription: {
     id: 'subscription',
     label: 'Subscriptions',
+    name: 'Quinn',
     role: 'Retention & Plans',
     accent: '#10b981',
     icon: RefreshCcw,
-    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Subscription&backgroundColor=d1fae5&glassesProbability=100',
-    thinkingText: 'Subscriptions is checking your plan…',
+    avatar: '/avatars/yeşil-subscriction.png',
+    thinkingText: 'Quinn is checking your plan…',
   },
   sales: {
     id: 'sales',
     label: 'Sales',
+    name: 'Chris',
     role: 'Products & Advice',
     accent: '#8b5cf6',
     icon: ShoppingBag,
-    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Sales&backgroundColor=ede9fe&glassesProbability=100',
-    thinkingText: 'Sales is finding recommendations…',
+    avatar: '/avatars/mor-sales.png',
+    thinkingText: 'Chris is finding recommendations…',
   },
 }
 
@@ -170,7 +176,7 @@ function LogCard({ entry }: { entry: LogEntry }) {
             className="text-[11px] font-semibold"
             style={{ color: agent.accent }}
           >
-            {agent.label}
+            {agent.name}
           </span>
           <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider">
             {kc.tag}
@@ -383,7 +389,7 @@ function StageAvatar({
           className="text-[11px] font-semibold tracking-tight leading-none"
           style={{ color: state === 'active' ? agent.accent : '#94a3b8' }}
         >
-          {agent.label}
+          {agent.name}
         </motion.p>
 
         <AnimatePresence>
@@ -908,7 +914,7 @@ export default function Home() {
                                 className="text-[10px] font-semibold uppercase tracking-wider ml-1 mb-1 block"
                                 style={{ color: agent.accent }}
                               >
-                                {agent.label}
+                                {agent.name} <span className="text-slate-300 mx-1">·</span> {agent.role}
                               </span>
                             )}
                             <div
@@ -1018,7 +1024,7 @@ export default function Home() {
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
                       disabled={isLoading}
-                      placeholder={isLoading ? `${AGENTS[thinkingAgent || activeAgent].label} is thinking…` : 'Type your message…'}
+                      placeholder={isLoading ? `${AGENTS[thinkingAgent || activeAgent].name} is thinking…` : 'Type your message…'}
                       className="flex-1 px-4 py-3 text-sm bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 transition-all disabled:opacity-50 placeholder:text-slate-300"
                       style={{
                         borderColor: isLoading ? `${AGENTS[thinkingAgent || activeAgent].accent}40` : undefined,
