@@ -1,89 +1,54 @@
 @import 'tailwindcss';
 
 :root {
-  --background: #f6f1e7;
-  --foreground: #141414;
-  --sand: #f6f1e7;
-  --ink: #141414;
-  --tide: #0f766e;
-  --ember: #d97706;
-  --mint: #d1fae5;
+  --background: #fafafa;
+  --foreground: #0f172a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-sand: var(--sand);
-  --color-ink: var(--ink);
-  --color-tide: var(--tide);
-  --color-ember: var(--ember);
-  --color-mint: var(--mint);
   --font-sans: var(--font-display);
   --font-mono: var(--font-code);
 }
 
+/* ── Scrollbar: thin & minimal ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+*::-webkit-scrollbar { width: 5px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+*::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Dark panel gets its own scrollbar style */
+aside *::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
+aside *::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.bg-aurora {
-  background-image:
-    radial-gradient(
-      80% 60% at 20% 10%,
-      rgba(15, 118, 110, 0.18),
-      transparent 60%
-    ),
-    radial-gradient(
-      70% 50% at 85% 20%,
-      rgba(217, 119, 6, 0.2),
-      transparent 55%
-    ),
-    radial-gradient(
-      60% 50% at 60% 80%,
-      rgba(16, 185, 129, 0.18),
-      transparent 60%
-    );
+/* Lock page — only inner containers scroll */
+html, body {
+  overflow: hidden;
+  height: 100%;
 }
 
-.bg-grid {
-  background-image:
-    linear-gradient(to right, rgba(20, 20, 20, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(20, 20, 20, 0.06) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(circle at top, black 20%, transparent 70%);
+/* Smooth focus */
+input:focus,
+textarea:focus,
+button:focus-visible {
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
-.animate-rise {
-  animation: rise 0.8s ease-out both;
-}
-
-.animate-rise-delay {
-  animation: rise 0.8s ease-out 0.15s both;
-}
-
-.animate-float {
-  animation: float 10s ease-in-out infinite;
-}
-
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(18px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
+/* Selection */
+::selection {
+  background-color: #e2e8f0;
+  color: #0f172a;
 }
