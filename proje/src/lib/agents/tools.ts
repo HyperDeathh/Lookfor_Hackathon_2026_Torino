@@ -10,6 +10,8 @@ import {
   shopifyCreateReturn,
   shopifyAddTags,
   shopifyCreateDiscountCode,
+  shopifyCreateDraftOrder,
+  shopifyGetCollectionRecommendations,
   shopifyGetProductDetails,
   shopifyGetProductRecommendations,
   shopifyGetRelatedKnowledgeSource
@@ -18,6 +20,7 @@ import {
   skioGetSubscriptionStatus,
   skioSkipNextOrderSubscription,
   skioPauseSubscription,
+  skioUnpauseSubscription,
   skioCancelSubscription
 } from '../../tools/skioTools'
 
@@ -126,6 +129,45 @@ export const shopify_cancel_order = tool(
     schema: z.object({
       orderId: z.string(),
       reason: z.enum(['CUSTOMER', 'OTHER'])
+    })
+  }
+)
+
+export const shopify_create_draft_order = tool(
+  async input => {
+    return await shopifyCreateDraftOrder({
+      customerId: input.customerId,
+      lineItems: input.lineItems,
+      shippingAddress: input.shippingAddress,
+      note: input.note
+    })
+  },
+  {
+    name: 'shopify_create_draft_order',
+    description: 'Create a draft order for a customer',
+    schema: z.object({
+      customerId: z.string(),
+      lineItems: z.array(
+        z.object({
+          variantId: z.string(),
+          quantity: z.number()
+        })
+      ),
+      shippingAddress: z
+        .object({
+          firstName: z.string().optional(),
+          lastName: z.string().optional(),
+          company: z.string().optional(),
+          address1: z.string(),
+          address2: z.string().optional(),
+          city: z.string(),
+          provinceCode: z.string().optional(),
+          country: z.string(),
+          zip: z.string(),
+          phone: z.string().optional()
+        })
+        .optional(),
+      note: z.string().optional()
     })
   }
 )
@@ -253,6 +295,21 @@ export const skio_cancel_subscription = tool(
   }
 )
 
+export const skio_unpause_subscription = tool(
+  async input => {
+    return await skioUnpauseSubscription({
+      subscriptionId: input.subscriptionId
+    })
+  },
+  {
+    name: 'skio_unpause_subscription',
+    description: 'Unpause a paused subscription',
+    schema: z.object({
+      subscriptionId: z.string()
+    })
+  }
+)
+
 export const shopify_create_discount_code = tool(
   async input => {
     return await shopifyCreateDiscountCode({
@@ -303,6 +360,21 @@ export const shopify_get_product_recommendations = tool(
   }
 )
 
+export const shopify_get_collection_recommendations = tool(
+  async input => {
+    return await shopifyGetCollectionRecommendations({
+      queryKeys: input.queryKeys
+    })
+  },
+  {
+    name: 'shopify_get_collection_recommendations',
+    description: 'Get collection recommendations based on keywords',
+    schema: z.object({
+      queryKeys: z.array(z.string())
+    })
+  }
+)
+
 export const shopify_get_related_knowledge_source = tool(
   async input => {
     return await shopifyGetRelatedKnowledgeSource({
@@ -326,6 +398,7 @@ export const ALL_TOOLS = [
   shopify_get_customer_orders,
   shopify_update_order_shipping_address,
   shopify_cancel_order,
+  shopify_create_draft_order,
   shopify_create_store_credit,
   shopify_refund_order,
   shopify_create_return,
@@ -333,9 +406,11 @@ export const ALL_TOOLS = [
   skio_get_subscription_status,
   skio_skip_next_order_subscription,
   skio_pause_subscription,
+  skio_unpause_subscription,
   skio_cancel_subscription,
   shopify_create_discount_code,
   shopify_get_product_details,
   shopify_get_product_recommendations,
+  shopify_get_collection_recommendations,
   shopify_get_related_knowledge_source
 ]

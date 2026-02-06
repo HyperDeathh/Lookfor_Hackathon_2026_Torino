@@ -49,7 +49,10 @@ export async function POST(
     })
   }
 
-  if (action === 'skip_next_order_subscription') {
+  if (
+    action === 'skip_next_order_subscription' ||
+    action === 'skip-next-order-subscription'
+  ) {
     return NextResponse.json({
       success: true,
       data: {
@@ -59,7 +62,7 @@ export async function POST(
     })
   }
 
-  if (action === 'pause_subscription') {
+  if (action === 'pause_subscription' || action === 'pause-subscription') {
     return NextResponse.json({
       success: true,
       data: {
@@ -69,13 +72,43 @@ export async function POST(
     })
   }
 
-  if (action === 'cancel_subscription') {
+  if (action === 'unpause_subscription' || action === 'unpause-subscription') {
+    return NextResponse.json({
+      success: true,
+      data: {
+        status: 'ACTIVE',
+        subscriptionId: body.subscriptionId
+      }
+    })
+  }
+
+  if (action === 'cancel_subscription' || action === 'cancel-subscription') {
     return NextResponse.json({
       success: true,
       data: {
         status: 'CANCELLED',
         cancelledAt: new Date().toISOString()
       }
+    })
+  }
+
+  if (action === 'create_draft_order') {
+    return NextResponse.json({
+      success: true,
+      data: {
+        draftOrderId: 'draft_999',
+        invoiceUrl: 'https://checkout.shopify.com/draft/999'
+      }
+    })
+  }
+
+  if (action === 'get_collection_recommendations') {
+    return NextResponse.json({
+      success: true,
+      data: [
+        { id: 'col_1', title: 'Summer Sale', handle: 'summer-sale' },
+        { id: 'col_2', title: 'New Arrivals', handle: 'new-arrivals' }
+      ]
     })
   }
 

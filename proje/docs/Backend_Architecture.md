@@ -33,15 +33,17 @@ We use **LangGraph** to build this flow. It's like a state machine or a metro ma
 graph TD
     Start((START)) --> Router[Router Node]
 
-    Router -- "Route: SHIPPING" --> OrderAgent[Order Manager]
-    Router -- "Route: REFUND" --> RefundAgent[Refund Specialist]
-    Router -- "Route: SUBSCRIPTION" --> SubAgent[Subscription Manager]
-    Router -- "Route: SALES" --> SalesAgent[Sales Assistant]
+    Router -- "ORDER_MANAGEMENT" --> OrderAgent[Order Manager]
+    Router -- "RESOLUTION_REFUND" --> RefundAgent[Refund Specialist]
+    Router -- "SUBSCRIPTION_RETENTION" --> SubAgent[Subscription Manager]
+    Router -- "SALES_PRODUCT" --> SalesAgent[Sales Assistant]
 
-    OrderAgent <--> Tools[Tool Executor]
+    OrderAgent <--> Tools[ALL_TOOLS Executor]
     RefundAgent <--> Tools
     SubAgent <--> Tools
     SalesAgent <--> Tools
+
+    Tools <--> MockAPI[Mock API / Shopify / Skio]
 
     OrderAgent --> End((END))
     RefundAgent --> End
@@ -97,12 +99,13 @@ Using these logs, the Frontend can display "Thinking..." bubbles or status steps
 ### 👮 Main Router (`routerAgent.ts`)
 
 - **Job:** Classify intent.
-- **Intelligence:** Uses GPT-4o-mini implies context.
-- **Fail-safe:** If AI is unsure, it uses Regex (keyword matching) to ensure the user always gets to a destination.
+- **Intelligence:** Uses `llama-3.3-70b-versatile` (via Groq) for high-accuracy classification.
+- **Fail-safe:** If AI is unsure, it uses a robust Regex fallback (keyword matching) to ensure the user always gets to a destination.
 
 ### 📦 Order Management Agent (`orderManagementAgent.ts`)
 
 - **Job:** Shipping Status & Order Edits.
+- **Tools:** `shopify_get_order_details`, `shopify_get_customer_orders`, `shopify_update_order_shipping_address`, `shopify_cancel_order`.
 - **Special Rules:**
   - **The "3-Day Rule":** If an order is marked "Delivered" less than 3 days ago but user says "Not received", it strictly advises waiting 24 more hours (carriers often mark early).
   - **Modifications:** Only allows address changes if the order is `Unfulfilled`.
@@ -110,6 +113,7 @@ Using these logs, the Frontend can display "Thinking..." bubbles or status steps
 ### 💰 Resolution & Refund Agent (`resolutionRefundAgent.ts`)
 
 - **Job:** Damaged items & Refunds.
+- **Tools:** `shopify_create_store_credit`, `shopify_refund_order`, `shopify_create_return`, `shopify_add_tags`.
 - **Special Rules:**
   - **Hierarchy of Offers:**
     1.  **Reshipment** (First choice)
@@ -119,16 +123,18 @@ Using these logs, the Frontend can display "Thinking..." bubbles or status steps
 ### 🔄 Subscription Retention Agent (`subscriptionRetentionAgent.ts`)
 
 - **Job:** Stop people from cancelling.
+- **Tools:** `skio_get_subscription_status`, `skio_skip_next_order_subscription`, `skio_pause_subscription`, `skio_unpause_subscription`, `shopify_create_discount_code`, `skio_cancel_subscription`.
 - **The "Retention Funnel" (Strict Order):**
   1.  User says "Cancel" -> Agent offers **"Skip next month"**.
-  2.  User says "No" -> Agent offers **"Pause for a while"**.
-  3.  User says "No" -> Agent offers **"Discount (20%)"**.
+  2.  User says "No" -> Agent offers **"Pause subscription"**.
+  3.  User says "No" -> Agent offers **"20% Discount"** for next 2 orders.
   4.  User says "No" -> Agent processes **Cancellation**.
 
 ### 🛍 Sales & Product Agent (`salesProductAgent.ts`)
 
-- **Job:** Everything else. Q&A, invalid codes, thanks.
-- **Capabilities:** Can search Knowledge Base (FAQs) and fix broken discount codes.
+- **Job:** Q&A, product recommendations, and invalid promo codes.
+- **Tools:** `shopify_get_product_details`, `shopify_get_product_recommendations`, `shopify_get_collection_recommendations`, `shopify_get_related_knowledge_source`, `shopify_create_discount_code`, `shopify_create_draft_order`.
+- **Capabilities:** Can search Knowledge Base (FAQs), recommend collections, and generate new discount codes or draft orders to solve issues.
 
 ---
 
@@ -212,7 +218,27 @@ type AgentState = {
 
 ---
 
-## 7. Adding New Features
+## 7. Testing & Mock API
+
+For rapid development and testing without hitting real Shopify/Skio production servers, the system includes a **Mock API Layer**.
+
+### Mock API Controller (`route.ts` @ `api/hackhaton/[action]`)
+
+This handler intercepts tool calls and returns simulated data.
+
+- **Location:** `src/app/api/hackhaton/[action]/route.ts`
+- **Behavior:**
+  - If `orderId` is `1001`, returns an "IN_TRANSIT" status.
+  - If a subscription is skipped, returns a new billing date 45 days in the future.
+  - Handles both underscore (`_`) and dash (`-`) naming conventions for Skio tools.
+
+### Test Script (`test-agent.js`)
+
+A standalone Node.js script to simulate user messages and inspect the full response payload (including logs and intent).
+
+---
+
+## 8. Adding New Features
 
 If you want to add a capability (e.g., "Check Loyalty Points"):
 

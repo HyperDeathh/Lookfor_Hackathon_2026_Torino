@@ -5,6 +5,7 @@ import {
   skio_get_subscription_status,
   skio_skip_next_order_subscription,
   skio_pause_subscription,
+  skio_unpause_subscription,
   shopify_create_discount_code,
   skio_cancel_subscription
 } from './tools'
@@ -13,6 +14,7 @@ const tools = [
   skio_get_subscription_status,
   skio_skip_next_order_subscription,
   skio_pause_subscription,
+  skio_unpause_subscription,
   shopify_create_discount_code,
   skio_cancel_subscription
 ]

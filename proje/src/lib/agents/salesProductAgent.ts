@@ -4,15 +4,19 @@ import { AgentState } from './state'
 import {
   shopify_get_product_details,
   shopify_get_product_recommendations,
+  shopify_get_collection_recommendations,
   shopify_get_related_knowledge_source,
-  shopify_create_discount_code
+  shopify_create_discount_code,
+  shopify_create_draft_order
 } from './tools'
 
 const tools = [
   shopify_get_product_details,
   shopify_get_product_recommendations,
+  shopify_get_collection_recommendations,
   shopify_get_related_knowledge_source,
-  shopify_create_discount_code
+  shopify_create_discount_code,
+  shopify_create_draft_order
 ]
 
 export const salesProductAgentNode = async (state: AgentState) => {
