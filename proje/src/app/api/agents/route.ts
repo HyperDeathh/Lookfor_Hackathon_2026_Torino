@@ -31,6 +31,7 @@ export async function POST(request: Request) {
     }
 
     const config = {
+      recursionLimit: 100,
       configurable: {
         thread_id: requestId || Date.now().toString()
       }
@@ -103,7 +104,9 @@ export async function POST(request: Request) {
         code: 'INTERNAL_SERVER_ERROR',
         error:
           error instanceof Error
-            ? error.message
+            ? (error.message.includes('Tool') || error.message.includes('Validation') || error.message.includes('Zod') 
+                ? 'Veri kaynağına erişirken teknik bir sorun yaşadım. Lütfen tekrar deneyin.' 
+                : error.message)
             : 'Bilinmeyen bir sunucu hatası oluştu.'
       },
       { status: 500 }

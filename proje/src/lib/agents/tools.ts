@@ -52,7 +52,7 @@ export const shopify_get_customer_orders = tool(
     description: 'Get list of recent orders for a customer email',
     schema: z.object({
       email: z.string(),
-      limit: z.number().optional()
+      limit: z.number().nullable().optional()
     })
   }
 )
@@ -138,8 +138,8 @@ export const shopify_create_draft_order = tool(
     return await shopifyCreateDraftOrder({
       customerId: input.customerId,
       lineItems: input.lineItems,
-      shippingAddress: input.shippingAddress,
-      note: input.note
+      shippingAddress: input.shippingAddress || undefined,
+      note: input.note || undefined
     })
   },
   {
@@ -166,8 +166,9 @@ export const shopify_create_draft_order = tool(
           zip: z.string(),
           phone: z.string().optional()
         })
+        .nullable()
         .optional(),
-      note: z.string().optional()
+      note: z.string().nullable().optional()
     })
   }
 )
@@ -326,7 +327,7 @@ export const shopify_create_discount_code = tool(
       type: z.enum(['percentage', 'fixed']),
       value: z.number(),
       duration: z.number(),
-      productIds: z.array(z.string()).optional()
+      productIds: z.array(z.string()).nullable().optional()
     })
   }
 )
@@ -387,7 +388,7 @@ export const shopify_get_related_knowledge_source = tool(
     description: 'Search FAQs, Blogs, and Docs to answer questions',
     schema: z.object({
       question: z.string(),
-      specificToProductId: z.string().optional()
+      specificToProductId: z.string().nullable().optional()
     })
   }
 )

@@ -25,6 +25,11 @@ const routerNode = async (state: typeof GraphState.State) => {
   // Or better: Let's extract logs from 'messages' at the very end in the API route, as ToolMessages already contain the info.
 
   const decision = await classifyIntent(text)
+  console.log('--- Router Decision ---')
+  console.log('Intent:', decision.intent)
+  console.log('Confidence:', decision.confidence)
+  console.log('Reason:', decision.reason)
+  console.log('-----------------------')
 
   return { intent: decision.intent }
 }
@@ -63,10 +68,12 @@ const shouldContinue = (state: typeof GraphState.State) => {
     Array.isArray(lastMessage.tool_calls) &&
     lastMessage.tool_calls.length > 0
   ) {
+    console.log('-> Agent deciding to call tools:', lastMessage.tool_calls.length)
     return 'tools'
   }
 
   // Otherwise, we are done
+  console.log('-> Agent deciding to END')
   return END
 }
 
