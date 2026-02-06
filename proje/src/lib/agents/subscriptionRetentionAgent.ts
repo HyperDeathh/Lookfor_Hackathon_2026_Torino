@@ -7,7 +7,8 @@ import {
   skio_pause_subscription,
   skio_unpause_subscription,
   shopify_create_discount_code,
-  skio_cancel_subscription
+  skio_cancel_subscription,
+  escalate_to_human
 } from './tools'
 
 const tools = [
@@ -16,7 +17,8 @@ const tools = [
   skio_pause_subscription,
   skio_unpause_subscription,
   shopify_create_discount_code,
-  skio_cancel_subscription
+  skio_cancel_subscription,
+  escalate_to_human
 ]
 
 export const subscriptionRetentionAgentNode = async (state: AgentState) => {

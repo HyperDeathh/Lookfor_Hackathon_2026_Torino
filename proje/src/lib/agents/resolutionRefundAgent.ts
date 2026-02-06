@@ -5,14 +5,16 @@ import {
   shopify_create_store_credit,
   shopify_refund_order,
   shopify_create_return,
-  shopify_add_tags
+  shopify_add_tags,
+  escalate_to_human
 } from './tools'
 
 const tools = [
   shopify_create_store_credit,
   shopify_refund_order,
   shopify_create_return,
-  shopify_add_tags
+  shopify_add_tags,
+  escalate_to_human
 ]
 
 export const resolutionRefundAgentNode = async (state: AgentState) => {

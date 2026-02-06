@@ -5,7 +5,8 @@ import {
   shopify_get_order_details,
   shopify_get_customer_orders,
   shopify_update_order_shipping_address,
-  shopify_cancel_order
+  shopify_cancel_order,
+  escalate_to_human
 } from './tools'
 
 // Tool Definitions
@@ -13,7 +14,8 @@ const tools = [
   shopify_get_order_details,
   shopify_get_customer_orders,
   shopify_update_order_shipping_address,
-  shopify_cancel_order
+  shopify_cancel_order,
+  escalate_to_human
 ]
 
 export const orderManagementAgentNode = async (state: AgentState) => {

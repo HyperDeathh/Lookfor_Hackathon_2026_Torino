@@ -7,7 +7,7 @@ import {
   shopify_get_collection_recommendations,
   shopify_get_related_knowledge_source,
   shopify_create_discount_code,
-  shopify_create_draft_order
+  escalate_to_human
 } from './tools'
 
 const tools = [
@@ -16,7 +16,7 @@ const tools = [
   shopify_get_collection_recommendations,
   shopify_get_related_knowledge_source,
   shopify_create_discount_code,
-  shopify_create_draft_order
+  escalate_to_human
 ]
 
 export const salesProductAgentNode = async (state: AgentState) => {

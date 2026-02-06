@@ -34,8 +34,40 @@ const routerNode = async (state: typeof GraphState.State) => {
   return { intent: decision.intent }
 }
 
-// Tool Node: Executes the tools
-const toolNode = new ToolNode(ALL_TOOLS)
+// Tool Node: Executes the tools and handles escalation detection
+const baseToolNode = new ToolNode(ALL_TOOLS)
+
+// Custom tool node wrapper that detects escalation
+const toolNodeWithEscalation = async (state: typeof GraphState.State) => {
+  // Run the base tool node
+  const result = await baseToolNode.invoke(state)
+  
+  // Check if any tool message indicates escalation
+  const messages = result.messages || []
+  for (const msg of messages) {
+    if (msg.name === 'escalate_to_human') {
+      console.log('[ESCALATION] Detected escalation tool call - setting isEscalated flag')
+      // Parse the escalation summary from the tool output
+      let escalationData = null
+      try {
+        const parsed = JSON.parse(
+          typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
+        )
+        escalationData = parsed.data || parsed
+      } catch {
+        escalationData = { raw: msg.content }
+      }
+      
+      return {
+        ...result,
+        isEscalated: true,
+        escalationSummary: escalationData
+      }
+    }
+  }
+  
+  return result
+}
 
 // --- Conditions ---
 
@@ -59,6 +91,13 @@ const routeToAgent = (state: typeof GraphState.State) => {
 
 // Check if the agent requested a tool call or is done
 const shouldContinue = (state: typeof GraphState.State) => {
+  // --- ESCALATION CHECK (HACKATHON REQUIREMENT) ---
+  // If the session is already escalated, STOP all automation
+  if (state.isEscalated) {
+    console.log('-> Session is ESCALATED - stopping automation')
+    return END
+  }
+
   const messages = state.messages
   const lastMessage = messages[messages.length - 1]
 
@@ -68,7 +107,15 @@ const shouldContinue = (state: typeof GraphState.State) => {
     Array.isArray(lastMessage.tool_calls) &&
     lastMessage.tool_calls.length > 0
   ) {
-    console.log('-> Agent deciding to call tools:', lastMessage.tool_calls.length)
+    // Check if any of the tool calls is an escalation
+    const hasEscalation = lastMessage.tool_calls.some(
+      (tc: { name?: string }) => tc.name === 'escalate_to_human'
+    )
+    if (hasEscalation) {
+      console.log('-> Agent is ESCALATING to human')
+    } else {
+      console.log('-> Agent deciding to call tools:', lastMessage.tool_calls.length)
+    }
     return 'tools'
   }
 
@@ -102,7 +149,7 @@ export const createWorkflow = () => {
     .addNode('resolution_refund', resolutionRefundAgentNode)
     .addNode('subscription_retention', subscriptionRetentionAgentNode)
     .addNode('sales_product', salesProductAgentNode)
-    .addNode('tools', toolNode)
+    .addNode('tools', toolNodeWithEscalation)
 
     // Add Edges
     // 1. Start -> Router

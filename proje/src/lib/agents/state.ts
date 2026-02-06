@@ -21,6 +21,16 @@ export const GraphState = Annotation.Root({
   logs: Annotation<any[]>({
     reducer: (x, y) => x.concat(y),
     default: () => []
+  }),
+  // --- Escalation State (HACKATHON REQUIREMENT) ---
+  isEscalated: Annotation<boolean>({
+    reducer: (x, y) => x || y, // Once escalated, stays escalated
+    default: () => false
+  }),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  escalationSummary: Annotation<Record<string, any> | null>({
+    reducer: (x, y) => y ?? x,
+    default: () => null
   })
 })
 
