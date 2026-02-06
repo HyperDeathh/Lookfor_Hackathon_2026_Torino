@@ -10,15 +10,15 @@ export class ConfigurationError extends Error {
 }
 
 const serverEnvSchema = z.object({
-  GROQ_API_KEY: z
+  OPENAI_API_KEY: z
     .string()
-    .min(1, 'GROQ_API_KEY eksik. Lütfen geçerli bir key girin.'),
+    .min(1, 'OPENAI_API_KEY eksik. Lütfen geçerli bir key girin.'),
   LANGGRAPH_TRACE: z.string().optional()
 })
 
 export const getServerEnv = () => {
   const parsed = serverEnvSchema.safeParse({
-    GROQ_API_KEY: process.env.GROQ_API_KEY,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     LANGGRAPH_TRACE: process.env.LANGGRAPH_TRACE
   })
 

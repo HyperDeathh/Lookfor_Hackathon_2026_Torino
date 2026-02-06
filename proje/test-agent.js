@@ -1,44 +1,52 @@
 const startTest = async () => {
   const url = 'http://localhost:3000/api/agents'
+  const sessionId = 'test-session-' + Date.now()
 
-  // Test Case: Subscription Retention (More Complex)
-  const payload = {
-    message:
-      'Aboneliğimi iptal etmek istiyorum. Evde o kadar çok ürün birikti ki koyacak yerim kalmadı. Lütfen hemen iptal edin.',
-    requestId: 'test-session-' + Date.now(),
-    customerInfo: {
-      email: 'test@example.com',
-      name: 'Test User',
-      id: 'cust_123'
+  // Helper to send messages
+  const sendMessage = async (message, customerInfo = null) => {
+    const payload = {
+      message,
+      requestId: sessionId,
+      customerInfo
+    }
+
+    console.log(`\n🔵 Sending: "${message}"`)
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status} ${response.statusText}`)
+      }
+
+      const json = await response.json()
+      console.log(`🟢 Response: "${json.data.response}"`)
+      console.log(`   Intent: ${json.data.intent}`)
+      return json
+    } catch (error) {
+      console.error('🔴 Error:', error.message)
     }
   }
 
-  console.log('🔵 Sending request to Agent...')
-  console.log('Payload:', JSON.stringify(payload, null, 2))
+  // Multi-turn Conversation
+  console.log('--- Starting Multi-turn Test ---')
 
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
+  // Turn 1: Introduction
+  await sendMessage('Merhaba, benim adım Ahmet.', {
+    email: 'test@example.com',
+    name: 'Ahmet Yilmaz',
+    id: 'cust_123'
+  })
 
-    if (!response.ok) {
-      const errorJson = await response.json().catch(() => ({}))
-      console.error(
-        'Server Error Response:',
-        JSON.stringify(errorJson, null, 2)
-      )
-      throw new Error(`HTTP Error: ${response.status} ${response.statusText}`)
-    }
+  // Turn 2: Memory Check
+  await sendMessage('Benim adım neydi?')
 
-    const json = await response.json()
-    console.log('\n🟢 Response Received (Raw Payload):')
-    console.log(JSON.stringify(json, null, 2))
-  } catch (error) {
-    console.error('🔴 Error:', error.message)
-    console.log('➡️ Make sure your Next.js server is running on port 3000!')
-  }
+  // Turn 3: Intent Check
+  await sendMessage('Aboneliğimi iptal etmek istiyorum.')
 }
 
 startTest()

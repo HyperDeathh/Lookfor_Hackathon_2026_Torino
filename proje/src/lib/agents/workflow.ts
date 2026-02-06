@@ -41,7 +41,7 @@ const baseToolNode = new ToolNode(ALL_TOOLS)
 const toolNodeWithEscalation = async (state: typeof GraphState.State) => {
   // Run the base tool node
   const result = await baseToolNode.invoke(state)
-  
+
   // Check if any tool message indicates escalation
   const messages = result.messages || []
   for (const msg of messages) {
@@ -57,7 +57,7 @@ const toolNodeWithEscalation = async (state: typeof GraphState.State) => {
       } catch {
         escalationData = { raw: msg.content }
       }
-      
+
       return {
         ...result,
         isEscalated: true,
@@ -65,7 +65,7 @@ const toolNodeWithEscalation = async (state: typeof GraphState.State) => {
       }
     }
   }
-  
+
   return result
 }
 
@@ -126,7 +126,7 @@ const shouldContinue = (state: typeof GraphState.State) => {
 
 // --- Workflow Definition ---
 
-export const createWorkflow = () => {
+export const createWorkflow = (checkpointer?: any) => {
   const routeToolOutput = (state: typeof GraphState.State) => {
     switch (state.intent) {
       case 'ORDER_MANAGEMENT':
@@ -181,5 +181,5 @@ export const createWorkflow = () => {
       END
     ])
 
-  return workflow.compile()
+  return workflow.compile({ checkpointer })
 }

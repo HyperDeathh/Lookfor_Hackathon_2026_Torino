@@ -8,6 +8,12 @@ import {
 } from '@langchain/core/messages'
 import { ConfigurationError } from '../../../lib/config/env'
 
+import { MemorySaver } from '@langchain/langgraph'
+
+// WARNING: MemorySaver loses state on server restart (or cold start in serverless).
+// For production, use Postgres/Redis checkpointer.
+const memory = new MemorySaver()
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -20,28 +26,33 @@ export async function POST(request: Request) {
       )
     }
 
-    const app = createWorkflow()
+    // Pass the shared checkpointer
+    const app = createWorkflow(memory)
 
-    // Initialize state with customer info if provided
-    const initialState = {
-      messages: [new HumanMessage(message)],
-      intent: 'OTHER',
-      customerInfo: customerInfo || {},
-      logs: []
-    }
+    const threadId = requestId || Date.now().toString()
 
     const config = {
       recursionLimit: 100,
       configurable: {
-        thread_id: requestId || Date.now().toString()
+        thread_id: threadId
       }
+    }
+
+    // Initialize state with customer info if provided
+    // Note: With checkpointer, the state is loaded from memory if thread_id exists.
+    // We only need to provide new messages.
+    // If we want to UPDATE customerInfo mid-session, we can include it.
+    const inputState = {
+      messages: [new HumanMessage(message)],
+      // Intent/customerInfo will be merged/overwritten if provided, or kept from history
+      ...(customerInfo ? { customerInfo } : {})
     }
 
     // Run the graph
     // We use .invoke() to get the final state.
     // To stream logs in real-time would require .stream() and Server-Sent Events (SSE) or AI SDK streaming.
     // For now, we return the full execution log at the end.
-    const result = await app.invoke(initialState, config)
+    const result = await app.invoke(inputState, config)
 
     const lastMessage = result.messages[result.messages.length - 1]
     const content =
@@ -104,9 +115,9 @@ export async function POST(request: Request) {
         code: 'INTERNAL_SERVER_ERROR',
         error:
           error instanceof Error
-            ? (error.message.includes('Tool') || error.message.includes('Validation') || error.message.includes('Zod') 
-                ? 'Veri kaynağına erişirken teknik bir sorun yaşadım. Lütfen tekrar deneyin.' 
-                : error.message)
+            ? (error.message.includes('Tool') || error.message.includes('Validation') || error.message.includes('Zod')
+              ? 'Veri kaynağına erişirken teknik bir sorun yaşadım. Lütfen tekrar deneyin.'
+              : error.message)
             : 'Bilinmeyen bir sunucu hatası oluştu.'
       },
       { status: 500 }
