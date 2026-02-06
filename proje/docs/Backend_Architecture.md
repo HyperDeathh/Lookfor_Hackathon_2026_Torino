@@ -1,248 +1,136 @@
-# Backend Architecture & AI Agents Documentation
+# Backend Architecture & AI Agents V2
 
-This document explains the "Brain" of the Lookfor project. It details how the AI decides what to do, how it talks to external systems (Shopify/Skio), and how it reports its actions back to the Frontend.
+This document serves as the comprehensive "Brain Manual" for the Lookfor project. It details the decision-making logic, external integrations, error handling protocols, and observability features of the AI system.
 
 ---
 
-## 1. Simple Concept: How it Works
+## 1. High-Level Concept: The AI "Call Center"
 
-Think of this system as a **Customer Support Call Center** with a team of 5 smart employees:
+We have architected the system as a **Virtual Call Center** staffed by specialized agents. This is not a single generic chatbot, but a coordinated team of 5 distinct "Employees":
 
-1.  **The Receptionist (Router):** Picks up the phone, listens to the user, and decides which department should handle it.
-2.  **Order Manager:** Handles "Where is my stuff?" and address changes.
-3.  **Refund Specialist:** Handles "My item is broken" or "I want my money back".
-4.  **Subscription Manager:** Handles "Cancel my subscription" (and tries to convince them to stay).
-5.  **Sales Assistant:** Handles "Does this code work?" or "How do I use this?".
-
-**The Workflow:**
-
-1.  User sends a message.
-2.  **Router** analyzes it and forwards it to the right **Agent**.
-3.  **Agent** thinks. If it needs data (like order status), it uses a **Tool**.
-4.  **Tool** fetches data from Shopify/Skio.
-5.  **Agent** reads the data and formulates a final answer.
-6.  System returns the **Answer** AND a **Log** of what it did (for the UI to show).
+| Agent Role | Responsibility |
+| :--- | :--- |
+| **👩‍💼 The Router** | The "Receptionist". Listens to the first message, classifies intent, and seamlessly transfers the user to the correct specialist. Uses Regex fallbacks for reliability. |
+| **📦 Order Manager** | Tracks shipments, handles "Where is my order?", and allows modifications (address changes) if unfulfilled. |
+| **💰 Refund Specialist** | Handles damaged items & refund requests. Prioritizes replacements > store credit > cash refunds. |
+| **🔄 Subscription Manager** | Retention specialist. Uses a "SAVE" funnel (Skip > Pause > Discount) before allowing cancellation. |
+| **🛍 Sales & Product** | Product expert. Answers FAQs, explains how-to-use, and issues replacement discount codes for failed promos. |
 
 ---
 
 ## 2. Technical Architecture (LangGraph)
 
-We use **LangGraph** to build this flow. It's like a state machine or a metro map where the conversation travels between nodes.
+The backbone of this system is **LangGraph**. It replaces fragile "prompt chains" with a robust **State Machine**.
+
+### The Graph Topology
 
 ```mermaid
 graph TD
-    Start((START)) --> Router[Router Node]
+    Start((START)) --> Router[Router Detection]
 
-    Router -- "ORDER_MANAGEMENT" --> OrderAgent[Order Manager]
-    Router -- "RESOLUTION_REFUND" --> RefundAgent[Refund Specialist]
-    Router -- "SUBSCRIPTION_RETENTION" --> SubAgent[Subscription Manager]
-    Router -- "SALES_PRODUCT" --> SalesAgent[Sales Assistant]
+    %% Router Decisions
+    Router -- "ORDER_MANAGEMENT" --> OrderAgent[📦 Order Agent]
+    Router -- "RESOLUTION_REFUND" --> RefundAgent[💰 Refund Agent]
+    Router -- "SUBSCRIPTION_RETENTION" --> SubAgent[🔄 Retention Agent]
+    Router -- "SALES_PRODUCT" --> SalesAgent[🛍 Sales/Product Agent]
 
-    OrderAgent <--> Tools[ALL_TOOLS Executor]
-    RefundAgent <--> Tools
-    SubAgent <--> Tools
-    SalesAgent <--> Tools
+    %% Cyclic Execution (The Brain Loop)
+    OrderAgent <-->|Cycle| ToolNode[🔧 Tool Executor]
+    RefundAgent <-->|Cycle| ToolNode
+    SubAgent <-->|Cycle| ToolNode
+    SalesAgent <-->|Cycle| ToolNode
 
-    Tools <--> MockAPI[Mock API / Shopify / Skio]
+    %% External Systems
+    ToolNode <-->|API Calls| Shopify[Shopify API]
+    ToolNode <-->|API Calls| Skio[Skio Subscription API]
 
+    %% Termination
     OrderAgent --> End((END))
     RefundAgent --> End
     SubAgent --> End
     SalesAgent --> End
 ```
 
+### Safety Mechanisms
+
+1.  **Recursion Limits:** The graph allows up to **100 steps** per turn. This prevents infinite loops while allowing complex multi-step reasoning (e.g., Check Order -> Failed -> Check Email -> Found).
+2.  **State Persistence:** The `AgentState` object persists across steps, carrying:
+    *   `messages` (Complete history)
+    *   `intent` (The active "department")
+    *   `customerInfo` (User context)
+    *   `logs` (Debug traces)
+
 ---
 
-## 3. Logging & UI Feedback (Crucial)
+## 3. Robust Error Handling & "Sanitization"
 
-Unlike standard chatbots that just sit silently while loading, our backend provides **Real-time Activity Logs**. This allows the Frontend to show users exactly what the bot is doing (e.g., "Checking order status...", "Applying discount...").
+A critical feature of V2 is how it handles failures. We do not expose raw JSON errors to the user.
 
-### How Logging Works
+### Layered Defense Strategy
 
-1.  When an Agent decides to call a tool, the LLM generates a `tool_call`.
-2.  The system executes the function and generates a `tool_output`.
-3.  **In `route.ts`**, we scan the entire conversation history _after_ the execution.
-4.  We extract these invisible steps and format them into a `logs` array for the Frontend.
+1.  **Schema Flexibility (Zod):**
+    *   Tools are defined with **flexible schemas** (e.g., `.nullable().optional()`).
+    *   If the AI sends `null` for an optional field (like `note` or `shippingAddress`), the system auto-corrects it to `undefined` instead of crashing.
 
-### Log Object Structure
+2.  **API "Sanitization" Layer (`route.ts`):**
+    *   The API route wraps the entire execution in a `try/catch` block.
+    *   **Interceptor:** If a technical error occurs (e.g., Zod Validation, Network Timeout), it intercepts the scary error message.
+    *   **Sanitized Output:** Returns a polite message to the frontend: *"Veri kaynağına erişirken teknik bir sorun yaşadım. Lütfen tekrar deneyin."*
 
-Using these logs, the Frontend can display "Thinking..." bubbles or status steps.
+---
 
-**Example 1: The Bot is calling a tool**
+## 4. Observability & Logs (Frontend Feedback)
+
+Unlike black-box AIs, our system provides "X-Ray Vision" to the frontend UI via **Real-time Logs**.
+
+### The Log Protocol
+
+When the AI works, it generates a parallel stream of "Logs" that the UI renders as status bubbles (e.g., "Checking Inventory...", "Processing Refund...").
+
+**Payload Example:**
 
 ```json
 {
   "type": "tool_call",
-  "calls": [
-    {
-      "name": "shopify_get_order_details",
-      "args": { "orderId": "1001" }
-    }
-  ]
-}
-```
-
-**Example 2: The Tool finished running**
-
-```json
-{
-  "type": "tool_output",
   "name": "shopify_get_order_details",
-  "content": "Status: Delivered, Date: 2023-10-10..."
+  "args": { "orderId": "1001" }
 }
 ```
 
----
+### Deep Tracing (LangSmith)
 
-## 4. The Agents (Detailed Rules)
-
-### 👮 Main Router (`routerAgent.ts`)
-
-- **Job:** Classify intent.
-- **Intelligence:** Uses `llama-3.3-70b-versatile` (via Groq) for high-accuracy classification.
-- **Fail-safe:** If AI is unsure, it uses a robust Regex fallback (keyword matching) to ensure the user always gets to a destination.
-
-### 📦 Order Management Agent (`orderManagementAgent.ts`)
-
-- **Job:** Shipping Status & Order Edits.
-- **Tools:** `shopify_get_order_details`, `shopify_get_customer_orders`, `shopify_update_order_shipping_address`, `shopify_cancel_order`.
-- **Special Rules:**
-  - **The "3-Day Rule":** If an order is marked "Delivered" less than 3 days ago but user says "Not received", it strictly advises waiting 24 more hours (carriers often mark early).
-  - **Modifications:** Only allows address changes if the order is `Unfulfilled`.
-
-### 💰 Resolution & Refund Agent (`resolutionRefundAgent.ts`)
-
-- **Job:** Damaged items & Refunds.
-- **Tools:** `shopify_create_store_credit`, `shopify_refund_order`, `shopify_create_return`, `shopify_add_tags`.
-- **Special Rules:**
-  - **Hierarchy of Offers:**
-    1.  **Reshipment** (First choice)
-    2.  **Store Credit** (Second choice - offers +10% bonus value)
-    3.  **Cash Refund** (Last resort)
-
-### 🔄 Subscription Retention Agent (`subscriptionRetentionAgent.ts`)
-
-- **Job:** Stop people from cancelling.
-- **Tools:** `skio_get_subscription_status`, `skio_skip_next_order_subscription`, `skio_pause_subscription`, `skio_unpause_subscription`, `shopify_create_discount_code`, `skio_cancel_subscription`.
-- **The "Retention Funnel" (Strict Order):**
-  1.  User says "Cancel" -> Agent offers **"Skip next month"**.
-  2.  User says "No" -> Agent offers **"Pause subscription"**.
-  3.  User says "No" -> Agent offers **"20% Discount"** for next 2 orders.
-  4.  User says "No" -> Agent processes **Cancellation**.
-
-### 🛍 Sales & Product Agent (`salesProductAgent.ts`)
-
-- **Job:** Q&A, product recommendations, and invalid promo codes.
-- **Tools:** `shopify_get_product_details`, `shopify_get_product_recommendations`, `shopify_get_collection_recommendations`, `shopify_get_related_knowledge_source`, `shopify_create_discount_code`, `shopify_create_draft_order`.
-- **Capabilities:** Can search Knowledge Base (FAQs), recommend collections, and generate new discount codes or draft orders to solve issues.
+For developer debugging, we use **LangSmith Tracing**.
+*   **Deep Inspection:** Allows us to see the exact prompt sent to the LLM, the token count, and latency.
+*   **Environment:** Configured via `LANGCHAIN_TRACING_V2=true` in `.env.local`.
 
 ---
 
-## 5. State Management (Memory)
+## 5. Agent "Personalities" & Rules
 
-The "State" is the shared memory that passes between agents.
+### 📦 Order Management
+*   **The "3-Day Rule":** If tracking says "Delivered" < 3 days ago but user claims missing, it politely asks to wait (standard carrier buffer).
+*   **Address Changes:** Only allowed for `UNFULFILLED` orders.
 
-```typescript
-type AgentState = {
-  // The full chat history. Contains User messages, AI text, and Tool results.
-  messages: BaseMessage[]
+### 💰 Resolution & Refund
+*   **Value Preservation:**
+    1.  **Offer Reshipment:** "I can send a new one immediately."
+    2.  **Offer Store Credit:** "I can give you a 110% refund in Store Credit."
+    3.  **Cash Refund:** "Okay, resolving to original payment method."
 
-  // The decided category (e.g., 'SUBSCRIPTION').
-  intent: string
-
-  // Who are we talking to? (Injected from Frontend).
-  customerInfo: {
-    email: string
-    name: string
-    id: string
-  }
-
-  // A place to collect debug info (optional).
-  logs: any[]
-}
-```
+### 🔄 Subscription Retention
+*   **The Workflow:** Cancel Request -> "Why?" -> Offer Skip -> "No?" -> Offer Discount -> "No?" -> Cancel.
+*   **Goal:** Maximize LTV (Lifetime Value) by retaining the user on ANY terms, even paused.
 
 ---
 
-## 6. API Reference for Frontend
+## 6. How to Add New Capabilities
 
-### Endpoint
+To extend the brain:
 
-`POST /api/agents`
-
-### Request (What you send)
-
-```json
-{
-  "message": "I want to cancel my subscription",
-  "requestId": "unique_session_id_123",
-  "customerInfo": {
-    "email": "jane@example.com",
-    "name": "Jane Doe"
-  }
-}
-```
-
-### Response (What you get)
-
-```json
-{
-  "success": true,
-  "data": {
-    "intent": "SUBSCRIPTION_RETENTION",
-    "threadId": "unique_session_id_123",
-
-    // The actual text message to show the user
-    "response": "I understand. Before you cancel, would you like to just skip your next order instead? It might be handy if you just have too much product right now.",
-
-    // The "Invisible" actions the bot took (for your UI)
-    "logs": [
-      {
-        "type": "tool_call",
-        "calls": [
-          {
-            "name": "skio_get_subscription_status",
-            "args": { "email": "jane@example.com" }
-          }
-        ]
-      },
-      {
-        "type": "tool_output",
-        "name": "skio_get_subscription_status",
-        "content": "{ status: 'ACTIVE', nextBilling: '2023-11-01' }"
-      }
-    ]
-  }
-}
-```
+1.  **Define Tool:** Write the TypeScript function in `src/tools/shopifyTools.ts`.
+2.  **Wrap Tool:** Create a LangChain `tool()` wrapper in `src/lib/agents/tools.ts` with a **Zod Schema**.
+3.  **Register:** Add it to the `ALL_TOOLS` array.
+4.  **Teach:** Add a line to the relevant Agent's System Prompt (e.g., "You can now check loyalty points using `check_points` tool.").
 
 ---
-
-## 7. Testing & Mock API
-
-For rapid development and testing without hitting real Shopify/Skio production servers, the system includes a **Mock API Layer**.
-
-### Mock API Controller (`route.ts` @ `api/hackhaton/[action]`)
-
-This handler intercepts tool calls and returns simulated data.
-
-- **Location:** `src/app/api/hackhaton/[action]/route.ts`
-- **Behavior:**
-  - If `orderId` is `1001`, returns an "IN_TRANSIT" status.
-  - If a subscription is skipped, returns a new billing date 45 days in the future.
-  - Handles both underscore (`_`) and dash (`-`) naming conventions for Skio tools.
-
-### Test Script (`test-agent.js`)
-
-A standalone Node.js script to simulate user messages and inspect the full response payload (including logs and intent).
-
----
-
-## 8. Adding New Features
-
-If you want to add a capability (e.g., "Check Loyalty Points"):
-
-1.  **Create Tool:** Add `shopify_get_points` function in `shopifyTools.ts`.
-2.  **Register Tool:** Add definition to `src/lib/agents/tools.ts`.
-3.  **Assign to Agent:** Add the tool to the `tools` list in `salesProductAgent.ts` (or create a new LoyaltyAgent).
-4.  **Update Prompt:** Tell the agent _when_ to use it in its system prompt.
+This architecture ensures high reliability, user-friendly error handling, and a scalable foundation for future AI features.
