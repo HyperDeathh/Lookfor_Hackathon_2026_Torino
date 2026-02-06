@@ -104,16 +104,16 @@ export type ShopifyDraftOrderLineItem = {
 }
 
 export type ShopifyDraftOrderShippingAddress = {
-  firstName: string
-  lastName: string
-  company: string
+  firstName?: string
+  lastName?: string
+  company?: string
   address1: string
-  address2: string
+  address2?: string
   city: string
-  provinceCode: string
+  provinceCode?: string
   country: string
   zip: string
-  phone: string
+  phone?: string
 }
 
 export type ShopifyCreateDraftOrderParams = {

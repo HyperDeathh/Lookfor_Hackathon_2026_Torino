@@ -3,11 +3,10 @@ import { SystemMessage, HumanMessage } from '@langchain/core/messages'
 import { getLlm } from '../llm/client'
 
 export type RouterIntent =
-  | 'SHIPPING'
-  | 'WRONG_ITEM'
-  | 'PRODUCT_ISSUE'
-  | 'ORDER_MODIFICATION'
-  | 'SUBSCRIPTION'
+  | 'ORDER_MANAGEMENT'
+  | 'RESOLUTION_REFUND'
+  | 'SUBSCRIPTION_RETENTION'
+  | 'SALES_PRODUCT'
   | 'OTHER'
 
 export type RouterDecision = {
@@ -18,11 +17,10 @@ export type RouterDecision = {
 
 const routerDecisionSchema = z.object({
   intent: z.enum([
-    'SHIPPING',
-    'WRONG_ITEM',
-    'PRODUCT_ISSUE',
-    'ORDER_MODIFICATION',
-    'SUBSCRIPTION',
+    'ORDER_MANAGEMENT',
+    'RESOLUTION_REFUND',
+    'SUBSCRIPTION_RETENTION',
+    'SALES_PRODUCT',
     'OTHER'
   ]),
   confidence: z.number().min(0).max(1),
@@ -35,62 +33,53 @@ const fallbackDecision = (message: string): RouterDecision => {
   const hasAny = (patterns: RegExp[]) =>
     patterns.some(pattern => pattern.test(text))
 
+  // Agent 1: Order Management (Shipping, Modification)
   if (
     hasAny([
-      /tracking/,
-      /where\s+is\s+my\s+order/,
-      /delivery/,
-      /shipping/,
-      /in\s+transit/
+      /tracking/, /where\s+is\s+my\s+order/, /delivery/, /shipping/, /in\s+transit/,
+      /cancel\s+order/, /change\s+address/, /update\s+address/, /modify\s+order/, /late/
     ])
   ) {
     return {
-      intent: 'SHIPPING',
-      confidence: 0.55,
-      reason: 'Detected shipping inquiry.'
+      intent: 'ORDER_MANAGEMENT',
+      confidence: 0.6,
+      reason: 'Detected order inquiry or modification request.'
     }
   }
 
+  // Agent 2: Resolution & Refund (Wrong Item, Product Issue)
   if (
     hasAny([
-      /wrong\s+item/,
-      /missing\s+item/,
-      /missing\s+pack/,
-      /not\s+in\s+the\s+box/
+      /wrong\s+item/, /missing\s+item/, /missing\s+pack/, /broken/, /damaged/,
+      /no\s+effect/, /didn['’]t\s+work/, /not\s+working/, /ineffective/, /refund/, /money\s+back/
     ])
   ) {
     return {
-      intent: 'WRONG_ITEM',
-      confidence: 0.55,
-      reason: 'Detected wrong or missing item.'
+      intent: 'RESOLUTION_REFUND',
+      confidence: 0.6,
+      reason: 'Detected product issue or refund request.'
     }
   }
 
-  if (
-    hasAny([/no\s+effect/, /didn['’]t\s+work/, /not\s+working/, /ineffective/])
-  ) {
+  // Agent 3: Subscription Retention (Subscription, Billing)
+  if (hasAny([/subscription/, /pause/, /skip/, /charged/, /billing/, /cancel\s+sub/, /too\s+much\s+product/])) {
     return {
-      intent: 'PRODUCT_ISSUE',
-      confidence: 0.55,
-      reason: 'Detected product issue.'
+      intent: 'SUBSCRIPTION_RETENTION',
+      confidence: 0.6,
+      reason: 'Detected subscription or billing issue.'
     }
   }
 
-  if (
-    hasAny([/cancel/, /change\s+address/, /update\s+address/, /modify\s+order/])
-  ) {
+  // Agent 4: Sales & Product (Discount, Promo, Product Info, Positive Feedback)
+  if (hasAny([
+    /discount/, /promo/, /code/, /coupon/, /invalid/,
+    /how\s+to\s+use/, /recommend/, /ingredient/, /what\s+is/,
+    /thank/, /love/, /great/, /amazing/
+  ])) {
     return {
-      intent: 'ORDER_MODIFICATION',
-      confidence: 0.55,
-      reason: 'Detected order modification request.'
-    }
-  }
-
-  if (hasAny([/subscription/, /pause/, /skip/, /charged/, /billing/])) {
-    return {
-      intent: 'SUBSCRIPTION',
-      confidence: 0.55,
-      reason: 'Detected subscription issue.'
+      intent: 'SALES_PRODUCT',
+      confidence: 0.6,
+      reason: 'Detected sales, product question, or feedback.'
     }
   }
 
@@ -122,12 +111,15 @@ export const classifyIntent = async (
   const llm = getLlm()
 
   const systemPrompt =
-    'You are a router agent for an ecommerce support system. ' +
-    'Classify the user message into exactly one intent: ' +
-    'SHIPPING, WRONG_ITEM, PRODUCT_ISSUE, ORDER_MODIFICATION, SUBSCRIPTION, OTHER. ' +
-    'Return ONLY a JSON object with keys: intent, confidence, reason. ' +
-    'confidence must be a number between 0 and 1. ' +
-    'reason must be short and specific.'
+    'You are the Main Router (Switchboard Operator) for an ecommerce support AI. ' +
+    'Your job is to classify the user\'s need into one of 4 specialized agents.\n\n' +
+    'AGENTS:\n' +
+    '1. ORDER_MANAGEMENT: Shipping delays, "Where is my order?", Order modification (address change, cancel BEFORE ship).\n' +
+    '2. RESOLUTION_REFUND: Wrong item, Missing item, Product ineffective ("didn\'t work"), Refund requests (after delivery).\n' +
+    '3. SUBSCRIPTION_RETENTION: Manage subscription (skip, pause, cancel), Billing issues, "Too much stock".\n' +
+    '4. SALES_PRODUCT: Discount code issues, Product questions ("how to use"), Recommendations, Positive feedback.\n' +
+    'Return ONLY a JSON object with keys: intent, confidence (0-1), reason.\n' +
+    'Intent must be one of: ORDER_MANAGEMENT, RESOLUTION_REFUND, SUBSCRIPTION_RETENTION, SALES_PRODUCT, OTHER.'
 
   const response = await llm.invoke([
     new SystemMessage(systemPrompt),

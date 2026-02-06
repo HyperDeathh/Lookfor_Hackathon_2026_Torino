@@ -1,9 +1,9 @@
 export type AgentId =
   | 'router'
-  | 'orchestrator'
-  | 'researcher'
-  | 'builder'
-  | 'validator'
+  | 'order_management'
+  | 'resolution_refund'
+  | 'subscription_retention'
+  | 'sales_product'
 
 export type AgentContext = {
   requestId: string
