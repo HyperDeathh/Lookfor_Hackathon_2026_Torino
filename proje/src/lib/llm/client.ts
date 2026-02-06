@@ -6,7 +6,7 @@ export const getLlm = () => {
 
   return new ChatOpenAI({
     apiKey: OPENAI_API_KEY,
-    model: 'gpt-5.2',
+    model: 'gpt-4o',
     temperature: 0.2
   })
 }

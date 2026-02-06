@@ -164,7 +164,7 @@ function LogCard({ entry }: { entry: LogEntry }) {
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
+      transition={{ duration: 0.5, ease: 'easeOut' }}
       className="mb-3"
     >
       <div className="bg-white/[0.04] rounded-lg border border-white/[0.06] p-3 hover:bg-white/[0.07] transition-colors">
@@ -277,7 +277,7 @@ function StageAvatar({
             style={{
               background: `radial-gradient(ellipse at 50% 0%, ${agent.accent}15, transparent 70%)`,
             }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            transition={{ type: 'spring', stiffness: 150, damping: 25 }}
           />
           {/* Layer 2 — Main beam (conic trapezoid) */}
           <motion.div
@@ -288,7 +288,7 @@ function StageAvatar({
               clipPath: 'polygon(35% 0%, 65% 0%, 100% 100%, 0% 100%)',
               filter: 'blur(2px)',
             }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            transition={{ type: 'spring', stiffness: 150, damping: 25 }}
           />
           {/* Layer 3 — Bright center core */}
           <motion.div
@@ -298,7 +298,7 @@ function StageAvatar({
               background: `linear-gradient(to bottom, ${agent.accent}25, ${agent.accent}10 60%, transparent)`,
               clipPath: 'polygon(40% 0%, 60% 0%, 85% 100%, 15% 100%)',
             }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            transition={{ type: 'spring', stiffness: 150, damping: 25 }}
           />
         </>
       )}
@@ -310,15 +310,15 @@ function StageAvatar({
           scale: state === 'active' ? 1.18 : state === 'passive' ? 0.9 : 0.8,
           y: state === 'active' ? -8 : 0,
         }}
-        transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+        transition={{ type: 'spring', stiffness: 180, damping: 20 }}
       >
-        {/* Pulse ring — faster heartbeat when thinking */}
+        {/* Pulse ring — slower heartbeat when thinking */}
         {state === 'active' && (
           <motion.div
             className="absolute inset-[-5px] rounded-full pointer-events-none"
             style={{ border: `2px solid ${agent.accent}` }}
-            animate={{ scale: [1, 1.6], opacity: [0.5, 0] }}
-            transition={{ duration: isThinking ? 0.8 : 1.8, repeat: Infinity, ease: 'easeOut' }}
+            animate={{ scale: [1, 1.4], opacity: [0, 0.4, 0] }}
+            transition={{ duration: isThinking ? 2 : 3, repeat: Infinity, ease: 'easeInOut' }}
           />
         )}
         {/* Secondary pulse ring for thinking (double-ring heartbeat) */}
@@ -326,8 +326,8 @@ function StageAvatar({
           <motion.div
             className="absolute inset-[-8px] rounded-full pointer-events-none"
             style={{ border: `1.5px solid ${agent.accent}` }}
-            animate={{ scale: [1, 1.9], opacity: [0.3, 0] }}
-            transition={{ duration: 1.1, repeat: Infinity, ease: 'easeOut', delay: 0.3 }}
+            animate={{ scale: [1, 1.6], opacity: [0, 0.2, 0] }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
           />
         )}
 
@@ -1116,131 +1116,131 @@ export default function Home() {
                       )
                     })}
                   </AnimatePresence>
-                {/* Contextual typing indicator */}
-                {thinkingAgent && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
+                  {/* Contextual typing indicator */}
+                  {thinkingAgent && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex items-center gap-3"
+                    >
+                      <div
+                        className="w-8 h-8 rounded-full overflow-hidden border-2 flex-shrink-0"
+                        style={{
+                          borderColor: `${AGENTS[thinkingAgent].accent}40`,
+                        }}
+                      >
+                        <img
+                          src={AGENTS[thinkingAgent].avatar}
+                          alt=""
+                          className="w-full h-full"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-full px-4 py-2 shadow-sm">
+                        <Loader2
+                          className="w-3.5 h-3.5 animate-spin"
+                          style={{ color: AGENTS[thinkingAgent].accent }}
+                        />
+                        <span className="text-[12px] text-slate-500">
+                          {AGENTS[thinkingAgent].thinkingText}
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  <div ref={chatEndRef} />
+                </div>
+              </div>
+
+              {/* Input area (fixed at bottom) */}
+              <div className="flex-shrink-0 px-6 py-4 bg-white/80 backdrop-blur-sm border-t border-slate-200/60">
+                <div className="max-w-2xl mx-auto">
+                  {/* Agent-colored suggestion chips */}
+                  {messages.length <= 1 && !isLoading && (
+                    <div className="flex gap-2 mb-3 flex-wrap">
+                      {suggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          onClick={() => sendMessage(s.text)}
+                          className="flex items-center gap-1.5 text-[11px] font-medium border rounded-full px-3 py-1.5 transition-all hover:shadow-md active:scale-95"
+                          style={{
+                            color: s.color,
+                            borderColor: `${s.color}30`,
+                            backgroundColor: `${s.color}08`,
+                          }}
+                        >
+                          <s.icon className="w-3 h-3" />
+                          {s.text}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Magic Input Autocomplete */}
+                  {inputValue.endsWith('#') && (
+                    <div className="absolute bottom-full left-6 mb-2 bg-white border border-slate-200 rounded-xl shadow-lg p-2 min-w-[200px] animate-in slide-in-from-bottom-2 fade-in duration-200">
+                      <p className="text-[9px] font-semibold text-slate-400 px-2 mb-1 uppercase tracking-wider">Recent Orders</p>
+                      <button onClick={() => setInputValue(p => p + '1001 ')} className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg transition-colors flex items-center justify-between group">
+                        <span>Order #1001</span>
+                        <span className="text-[10px] text-slate-400 group-hover:text-blue-500">Processing</span>
+                      </button>
+                      <button onClick={() => setInputValue(p => p + '1002 ')} className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg transition-colors flex items-center justify-between group">
+                        <span>Order #1002</span>
+                        <span className="text-[10px] text-slate-400 group-hover:text-green-500">Delivered</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {inputValue.endsWith('/') && (
+                    <div className="absolute bottom-full left-6 mb-2 bg-white border border-slate-200 rounded-xl shadow-lg p-2 min-w-[200px] animate-in slide-in-from-bottom-2 fade-in duration-200">
+                      <p className="text-[9px] font-semibold text-slate-400 px-2 mb-1 uppercase tracking-wider">System Commands</p>
+                      <button onClick={() => { resetSession(); setInputValue('') }} className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-2 text-red-600">
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>/reset</span>
+                      </button>
+                      <button onClick={() => setInputValue('')} className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-2 text-slate-600">
+                        <Terminal className="w-3.5 h-3.5" />
+                        <span>/debug</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Input field */}
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      sendMessage()
+                    }}
                     className="flex items-center gap-3"
                   >
-                    <div
-                      className="w-8 h-8 rounded-full overflow-hidden border-2 flex-shrink-0"
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      disabled={isLoading}
+                      placeholder={isLoading ? `${AGENTS[thinkingAgent || activeAgent].name} is thinking…` : 'Type your message…'}
+                      className="flex-1 px-4 py-3 text-sm bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 transition-all disabled:opacity-50 placeholder:text-slate-300"
                       style={{
-                        borderColor: `${AGENTS[thinkingAgent].accent}40`,
+                        borderColor: isLoading ? `${AGENTS[thinkingAgent || activeAgent].accent}40` : undefined,
                       }}
-                    >
-                      <img
-                        src={AGENTS[thinkingAgent].avatar}
-                        alt=""
-                        className="w-full h-full"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-full px-4 py-2 shadow-sm">
-                      <Loader2
-                        className="w-3.5 h-3.5 animate-spin"
-                        style={{ color: AGENTS[thinkingAgent].accent }}
-                      />
-                      <span className="text-[12px] text-slate-500">
-                        {AGENTS[thinkingAgent].thinkingText}
-                      </span>
-                    </div>
-                  </motion.div>
-                )}
-
-                <div ref={chatEndRef} />
-              </div>
-            </div>
-
-          {/* Input area (fixed at bottom) */}
-          <div className="flex-shrink-0 px-6 py-4 bg-white/80 backdrop-blur-sm border-t border-slate-200/60">
-            <div className="max-w-2xl mx-auto">
-              {/* Agent-colored suggestion chips */}
-              {messages.length <= 1 && !isLoading && (
-                <div className="flex gap-2 mb-3 flex-wrap">
-                  {suggestions.map((s, i) => (
+                    />
                     <button
-                      key={i}
-                      onClick={() => sendMessage(s.text)}
-                      className="flex items-center gap-1.5 text-[11px] font-medium border rounded-full px-3 py-1.5 transition-all hover:shadow-md active:scale-95"
-                      style={{
-                        color: s.color,
-                        borderColor: `${s.color}30`,
-                        backgroundColor: `${s.color}08`,
-                      }}
+                      type="submit"
+                      disabled={!inputValue.trim() || isLoading}
+                      className="w-11 h-11 rounded-xl bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0"
                     >
-                      <s.icon className="w-3 h-3" />
-                      {s.text}
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
                     </button>
-                  ))}
+                  </form>
                 </div>
-              )}
-
-              {/* Magic Input Autocomplete */}
-              {inputValue.endsWith('#') && (
-                <div className="absolute bottom-full left-6 mb-2 bg-white border border-slate-200 rounded-xl shadow-lg p-2 min-w-[200px] animate-in slide-in-from-bottom-2 fade-in duration-200">
-                  <p className="text-[9px] font-semibold text-slate-400 px-2 mb-1 uppercase tracking-wider">Recent Orders</p>
-                  <button onClick={() => setInputValue(p => p + '1001 ')} className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg transition-colors flex items-center justify-between group">
-                    <span>Order #1001</span>
-                    <span className="text-[10px] text-slate-400 group-hover:text-blue-500">Processing</span>
-                  </button>
-                  <button onClick={() => setInputValue(p => p + '1002 ')} className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg transition-colors flex items-center justify-between group">
-                    <span>Order #1002</span>
-                    <span className="text-[10px] text-slate-400 group-hover:text-green-500">Delivered</span>
-                  </button>
-                </div>
-              )}
-
-              {inputValue.endsWith('/') && (
-                <div className="absolute bottom-full left-6 mb-2 bg-white border border-slate-200 rounded-xl shadow-lg p-2 min-w-[200px] animate-in slide-in-from-bottom-2 fade-in duration-200">
-                  <p className="text-[9px] font-semibold text-slate-400 px-2 mb-1 uppercase tracking-wider">System Commands</p>
-                  <button onClick={() => { resetSession(); setInputValue('') }} className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-2 text-red-600">
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>/reset</span>
-                  </button>
-                  <button onClick={() => setInputValue('')} className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-2 text-slate-600">
-                    <Terminal className="w-3.5 h-3.5" />
-                    <span>/debug</span>
-                  </button>
-                </div>
-              )}
-
-              {/* Input field */}
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  sendMessage()
-                }}
-                className="flex items-center gap-3"
-              >
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  disabled={isLoading}
-                  placeholder={isLoading ? `${AGENTS[thinkingAgent || activeAgent].name} is thinking…` : 'Type your message…'}
-                  className="flex-1 px-4 py-3 text-sm bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 transition-all disabled:opacity-50 placeholder:text-slate-300"
-                  style={{
-                    borderColor: isLoading ? `${AGENTS[thinkingAgent || activeAgent].accent}40` : undefined,
-                  }}
-                />
-                <button
-                  type="submit"
-                  disabled={!inputValue.trim() || isLoading}
-                  className="w-11 h-11 rounded-xl bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                </button>
-              </form>
-            </div>
-          </div>
-        </>
+              </div>
+            </>
           )}
-    </div>
+        </div>
       </main >
     </div >
   )
