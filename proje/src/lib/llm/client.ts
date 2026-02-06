@@ -1,12 +1,12 @@
-import { ChatOpenAI } from '@langchain/openai'
+import { ChatGroq } from '@langchain/groq'
 import { getServerEnv } from '../config/env'
 
 export const getLlm = () => {
-  const { OPENAI_API_KEY } = getServerEnv()
+  const { GROQ_API_KEY } = getServerEnv()
 
-  return new ChatOpenAI({
-    apiKey: OPENAI_API_KEY,
-    model: 'gpt-4o-mini',
+  return new ChatGroq({
+    apiKey: GROQ_API_KEY,
+    model: 'llama-3.3-70b-versatile',
     temperature: 0.2
   })
 }

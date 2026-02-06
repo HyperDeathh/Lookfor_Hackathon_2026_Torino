@@ -1,64 +1,20 @@
 import { SystemMessage } from '@langchain/core/messages'
 import { getLlm } from '../llm/client'
 import { AgentState } from './state'
+import {
+  skio_get_subscription_status,
+  skio_skip_next_order_subscription,
+  skio_pause_subscription,
+  shopify_create_discount_code,
+  skio_cancel_subscription
+} from './tools'
 
 const tools = [
-  {
-    name: 'skio_get_subscription_status',
-    description: 'Check status of a subscription',
-    parameters: {
-      type: 'object',
-      properties: { email: { type: 'string' } },
-      required: ['email']
-    }
-  },
-  {
-    name: 'skio_skip_next_order_subscription',
-    description: 'Skip the immediate next order in subscription',
-    parameters: {
-      type: 'object',
-      properties: { subscriptionId: { type: 'string' } },
-      required: ['subscriptionId']
-    }
-  },
-  {
-    name: 'skio_pause_subscription',
-    description: 'Pause subscription until date',
-    parameters: {
-      type: 'object',
-      properties: {
-        subscriptionId: { type: 'string' },
-        pausedUntil: { type: 'string' }
-      },
-      required: ['subscriptionId', 'pausedUntil']
-    }
-  },
-  {
-    name: 'shopify_create_discount_code',
-    description: 'Create retention discount code',
-    parameters: {
-      type: 'object',
-      properties: {
-        type: { type: 'string', enum: ['percentage'] },
-        value: { type: 'number' },
-        duration: { type: 'number' },
-        productIds: { type: 'array', items: { type: 'string' } }
-      },
-      required: ['type', 'value', 'duration']
-    }
-  },
-  {
-    name: 'skio_cancel_subscription',
-    description: 'Cancel subscription permanently',
-    parameters: {
-      type: 'object',
-      properties: {
-        subscriptionId: { type: 'string' },
-        cancellationReasons: { type: 'array', items: { type: 'string' } }
-      },
-      required: ['subscriptionId', 'cancellationReasons']
-    }
-  }
+  skio_get_subscription_status,
+  skio_skip_next_order_subscription,
+  skio_pause_subscription,
+  shopify_create_discount_code,
+  skio_cancel_subscription
 ]
 
 export const subscriptionRetentionAgentNode = async (state: AgentState) => {

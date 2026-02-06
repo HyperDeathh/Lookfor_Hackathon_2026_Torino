@@ -91,7 +91,7 @@ export async function POST(request: Request) {
           code: error.code,
           error: error.message,
           suggestion:
-            'Lütfen proje ana dizinindeki .env.local dosyasını kontrol edin ve eksik anahtarları (örn: OPENAI_API_KEY) ekleyin.'
+            'Lütfen proje ana dizinindeki .env.local dosyasını kontrol edin ve eksik anahtarları (örn: GROQ_API_KEY) ekleyin.'
         },
         { status: 503 }
       )

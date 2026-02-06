@@ -1,56 +1,18 @@
 import { SystemMessage } from '@langchain/core/messages'
 import { getLlm } from '../llm/client'
 import { AgentState } from './state'
+import {
+  shopify_get_product_details,
+  shopify_get_product_recommendations,
+  shopify_get_related_knowledge_source,
+  shopify_create_discount_code
+} from './tools'
 
 const tools = [
-  {
-    name: 'shopify_get_product_details',
-    description: 'Get product specs and details',
-    parameters: {
-      type: 'object',
-      properties: {
-        queryType: { type: 'string', enum: ['id', 'name', 'key feature'] },
-        queryKey: { type: 'string' }
-      },
-      required: ['queryType', 'queryKey']
-    }
-  },
-  {
-    name: 'shopify_get_product_recommendations',
-    description: 'Get product recommendations based on keywords',
-    parameters: {
-      type: 'object',
-      properties: {
-        queryKeys: { type: 'array', items: { type: 'string' } }
-      },
-      required: ['queryKeys']
-    }
-  },
-  {
-    name: 'shopify_get_related_knowledge_source',
-    description: 'Search FAQs, Blogs, and Docs',
-    parameters: {
-      type: 'object',
-      properties: {
-        question: { type: 'string' },
-        specificToProductId: { type: 'string' }
-      },
-      required: ['question']
-    }
-  },
-  {
-    name: 'shopify_create_discount_code',
-    description: 'Fix invalid code issues by issuing new one',
-    parameters: {
-      type: 'object',
-      properties: {
-        type: { type: 'string', enum: ['percentage', 'fixed'] },
-        value: { type: 'number' },
-        duration: { type: 'number' }
-      },
-      required: ['type', 'value', 'duration']
-    }
-  }
+  shopify_get_product_details,
+  shopify_get_product_recommendations,
+  shopify_get_related_knowledge_source,
+  shopify_create_discount_code
 ]
 
 export const salesProductAgentNode = async (state: AgentState) => {

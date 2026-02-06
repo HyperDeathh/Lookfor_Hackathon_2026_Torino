@@ -1,65 +1,18 @@
 import { SystemMessage } from '@langchain/core/messages'
 import { getLlm } from '../llm/client'
 import { AgentState } from './state'
+import {
+  shopify_create_store_credit,
+  shopify_refund_order,
+  shopify_create_return,
+  shopify_add_tags
+} from './tools'
 
 const tools = [
-  {
-    name: 'shopify_create_store_credit',
-    description: 'Issue store credit to a customer',
-    parameters: {
-      type: 'object',
-      properties: {
-        id: { type: 'string', description: 'Customer ID' },
-        creditAmount: {
-          type: 'object',
-          properties: {
-            amount: { type: 'string' },
-            currencyCode: { type: 'string' }
-          },
-          required: ['amount', 'currencyCode']
-        }
-      },
-      required: ['id', 'creditAmount']
-    }
-  },
-  {
-    name: 'shopify_refund_order',
-    description: 'Refund an order to original payment method',
-    parameters: {
-      type: 'object',
-      properties: {
-        orderId: { type: 'string' },
-        refundMethod: {
-          type: 'string',
-          enum: ['ORIGINAL_PAYMENT_METHODS', 'STORE_CREDIT']
-        }
-      },
-      required: ['orderId', 'refundMethod']
-    }
-  },
-  {
-    name: 'shopify_create_return',
-    description: 'Initiate a return process for an order',
-    parameters: {
-      type: 'object',
-      properties: {
-        orderId: { type: 'string' }
-      },
-      required: ['orderId']
-    }
-  },
-  {
-    name: 'shopify_add_tags',
-    description: 'Add monitoring tags to an order or customer',
-    parameters: {
-      type: 'object',
-      properties: {
-        id: { type: 'string' },
-        tags: { type: 'array', items: { type: 'string' } }
-      },
-      required: ['id', 'tags']
-    }
-  }
+  shopify_create_store_credit,
+  shopify_refund_order,
+  shopify_create_return,
+  shopify_add_tags
 ]
 
 export const resolutionRefundAgentNode = async (state: AgentState) => {
