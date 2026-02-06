@@ -15,7 +15,7 @@ const plexMono = IBM_Plex_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Lookfor Multi-Agent Studio',
+  title: 'Torino Multi-Agent Studio',
   description: 'LangGraph tabanli multi-agent akislari icin modern altyapi.'
 }
 

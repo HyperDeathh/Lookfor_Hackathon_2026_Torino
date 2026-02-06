@@ -52,3 +52,92 @@ button:focus-visible {
   background-color: #e2e8f0;
   color: #0f172a;
 }
+
+/* ── Agent Markdown Prose ── */
+.prose-agent {
+  font-size: 14px;
+  line-height: 1.65;
+  color: inherit;
+}
+.prose-agent p {
+  margin: 0 0 0.5em;
+}
+.prose-agent p:last-child {
+  margin-bottom: 0;
+}
+.prose-agent strong {
+  font-weight: 600;
+  color: #1e293b;
+}
+.prose-agent em {
+  font-style: italic;
+}
+.prose-agent ul,
+.prose-agent ol {
+  margin: 0.4em 0;
+  padding-left: 1.4em;
+}
+.prose-agent li {
+  margin: 0.15em 0;
+}
+.prose-agent ul li {
+  list-style-type: disc;
+}
+.prose-agent ol li {
+  list-style-type: decimal;
+}
+.prose-agent code {
+  font-family: var(--font-code), monospace;
+  font-size: 0.88em;
+  background: #f1f5f9;
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  color: #334155;
+}
+.prose-agent pre {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75em 1em;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+.prose-agent pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.85em;
+}
+.prose-agent a {
+  color: #3b82f6;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prose-agent blockquote {
+  border-left: 3px solid #cbd5e1;
+  margin: 0.5em 0;
+  padding: 0.25em 0.75em;
+  color: #64748b;
+}
+.prose-agent h1, .prose-agent h2, .prose-agent h3 {
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0.6em 0 0.3em;
+}
+.prose-agent h1 { font-size: 1.15em; }
+.prose-agent h2 { font-size: 1.05em; }
+.prose-agent h3 { font-size: 1em; }
+.prose-agent table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  font-size: 0.9em;
+}
+.prose-agent th, .prose-agent td {
+  border: 1px solid #e2e8f0;
+  padding: 0.35em 0.6em;
+  text-align: left;
+}
+.prose-agent th {
+  background: #f8fafc;
+  font-weight: 600;
+}

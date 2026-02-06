@@ -3,6 +3,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   Send,
   Box,
@@ -255,17 +257,40 @@ function StageAvatar({
       className="relative flex flex-col items-center"
       style={{ width: '88px' }}
     >
-      {/* ── SPOTLIGHT BEAM ── */}
+      {/* ── SPOTLIGHT BEAM (3-layer) ── */}
       {state === 'active' && (
-        <motion.div
-          layoutId="spotlight-beam"
-          className="absolute -top-10 left-1/2 -translate-x-1/2 w-20 h-28 pointer-events-none"
-          style={{
-            background: `linear-gradient(to bottom, ${agent.accent}18, ${agent.accent}08, transparent)`,
-            clipPath: 'polygon(30% 0%, 70% 0%, 95% 100%, 5% 100%)',
-          }}
-          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-        />
+        <>
+          {/* Layer 1 — Wide ambient glow */}
+          <motion.div
+            layoutId="spotlight-ambient"
+            className="absolute -top-16 left-1/2 -translate-x-1/2 w-32 h-40 pointer-events-none"
+            style={{
+              background: `radial-gradient(ellipse at 50% 0%, ${agent.accent}15, transparent 70%)`,
+            }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          />
+          {/* Layer 2 — Main beam (conic trapezoid) */}
+          <motion.div
+            layoutId="spotlight-beam"
+            className="absolute -top-14 left-1/2 -translate-x-1/2 w-28 h-36 pointer-events-none"
+            style={{
+              background: `conic-gradient(from 180deg at 50% 0%, transparent 30%, ${agent.accent}20 40%, ${agent.accent}30 50%, ${agent.accent}20 60%, transparent 70%)`,
+              clipPath: 'polygon(35% 0%, 65% 0%, 100% 100%, 0% 100%)',
+              filter: 'blur(2px)',
+            }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          />
+          {/* Layer 3 — Bright center core */}
+          <motion.div
+            layoutId="spotlight-core"
+            className="absolute -top-12 left-1/2 -translate-x-1/2 w-16 h-32 pointer-events-none"
+            style={{
+              background: `linear-gradient(to bottom, ${agent.accent}25, ${agent.accent}10 60%, transparent)`,
+              clipPath: 'polygon(40% 0%, 60% 0%, 85% 100%, 15% 100%)',
+            }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          />
+        </>
       )}
 
       {/* ── AVATAR ── */}
@@ -277,13 +302,22 @@ function StageAvatar({
         }}
         transition={{ type: 'spring', stiffness: 300, damping: 22 }}
       >
-        {/* Pulse ring */}
+        {/* Pulse ring — faster heartbeat when thinking */}
         {state === 'active' && (
           <motion.div
             className="absolute inset-[-5px] rounded-full pointer-events-none"
             style={{ border: `2px solid ${agent.accent}` }}
-            animate={{ scale: [1, 1.6], opacity: [0.4, 0] }}
-            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
+            animate={{ scale: [1, 1.6], opacity: [0.5, 0] }}
+            transition={{ duration: isThinking ? 0.8 : 1.8, repeat: Infinity, ease: 'easeOut' }}
+          />
+        )}
+        {/* Secondary pulse ring for thinking (double-ring heartbeat) */}
+        {state === 'active' && isThinking && (
+          <motion.div
+            className="absolute inset-[-8px] rounded-full pointer-events-none"
+            style={{ border: `1.5px solid ${agent.accent}` }}
+            animate={{ scale: [1, 1.9], opacity: [0.3, 0] }}
+            transition={{ duration: 1.1, repeat: Infinity, ease: 'easeOut', delay: 0.3 }}
           />
         )}
 
@@ -649,7 +683,7 @@ export default function Home() {
           <header className="flex items-center justify-between px-6 py-3 bg-white/80 backdrop-blur-sm border-b border-slate-200/60 flex-shrink-0">
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-slate-900 tracking-tight">
-                Lookfor
+                Torino
                 <span className="text-emerald-500">.</span>
               </h1>
               <span className="text-[10px] text-slate-400 border-l border-slate-200 pl-2 font-medium hidden sm:inline">
@@ -881,10 +915,26 @@ export default function Home() {
                               className={`px-4 py-3 text-[14px] leading-relaxed ${
                                 isUser
                                   ? 'bg-slate-900 text-white rounded-2xl rounded-tr-sm'
-                                  : 'bg-white border border-slate-200 text-slate-700 rounded-2xl rounded-tl-sm shadow-sm'
+                                  : 'border text-slate-700 rounded-2xl rounded-tl-sm shadow-sm'
                               }`}
+                              style={
+                                !isUser
+                                  ? {
+                                      backgroundColor: `${agent.accent}08`,
+                                      borderColor: `${agent.accent}20`,
+                                    }
+                                  : undefined
+                              }
                             >
-                              {msg.text}
+                              {isUser ? (
+                                msg.text
+                              ) : (
+                                <div className="prose-agent">
+                                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                    {msg.text}
+                                  </ReactMarkdown>
+                                </div>
+                              )}
                             </div>
                             <span className="text-[10px] text-slate-300 mt-1 block px-1">
                               {msg.ts}
@@ -968,8 +1018,11 @@ export default function Home() {
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
                       disabled={isLoading}
-                      placeholder="Type your message…"
-                      className="flex-1 px-4 py-3 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 transition-all disabled:opacity-50 placeholder:text-slate-300"
+                      placeholder={isLoading ? `${AGENTS[thinkingAgent || activeAgent].label} is thinking…` : 'Type your message…'}
+                      className="flex-1 px-4 py-3 text-sm bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 transition-all disabled:opacity-50 placeholder:text-slate-300"
+                      style={{
+                        borderColor: isLoading ? `${AGENTS[thinkingAgent || activeAgent].accent}40` : undefined,
+                      }}
                     />
                     <button
                       type="submit"
