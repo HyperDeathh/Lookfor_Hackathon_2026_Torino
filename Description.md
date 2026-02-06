@@ -12,7 +12,7 @@ We could talk about this forever, and we should, let’s do it at the hackathon.
 
 ---
 
-## Provider vs. Consumer
+## Provider vs. Consumer 
 
 In this early era, there are two main ways to interact with AI.
 
