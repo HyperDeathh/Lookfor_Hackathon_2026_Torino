@@ -36,8 +36,16 @@ const fallbackDecision = (message: string): RouterDecision => {
   // Agent 1: Order Management (Shipping, Modification)
   if (
     hasAny([
-      /tracking/, /where\s+is\s+my\s+order/, /delivery/, /shipping/, /in\s+transit/,
-      /cancel\s+order/, /change\s+address/, /update\s+address/, /modify\s+order/, /late/
+      /tracking/,
+      /where\s+is\s+my\s+order/,
+      /delivery/,
+      /shipping/,
+      /in\s+transit/,
+      /cancel\s+order/,
+      /change\s+address/,
+      /update\s+address/,
+      /modify\s+order/,
+      /late/
     ])
   ) {
     return {
@@ -50,8 +58,17 @@ const fallbackDecision = (message: string): RouterDecision => {
   // Agent 2: Resolution & Refund (Wrong Item, Product Issue)
   if (
     hasAny([
-      /wrong\s+item/, /missing\s+item/, /missing\s+pack/, /broken/, /damaged/,
-      /no\s+effect/, /didn['’]t\s+work/, /not\s+working/, /ineffective/, /refund/, /money\s+back/
+      /wrong\s+item/,
+      /missing\s+item/,
+      /missing\s+pack/,
+      /broken/,
+      /damaged/,
+      /no\s+effect/,
+      /didn['’]t\s+work/,
+      /not\s+working/,
+      /ineffective/,
+      /refund/,
+      /money\s+back/
     ])
   ) {
     return {
@@ -62,7 +79,17 @@ const fallbackDecision = (message: string): RouterDecision => {
   }
 
   // Agent 3: Subscription Retention (Subscription, Billing)
-  if (hasAny([/subscription/, /pause/, /skip/, /charged/, /billing/, /cancel\s+sub/, /too\s+much\s+product/])) {
+  if (
+    hasAny([
+      /subscription/,
+      /pause/,
+      /skip/,
+      /charged/,
+      /billing/,
+      /cancel\s+sub/,
+      /too\s+much\s+product/
+    ])
+  ) {
     return {
       intent: 'SUBSCRIPTION_RETENTION',
       confidence: 0.6,
@@ -71,11 +98,23 @@ const fallbackDecision = (message: string): RouterDecision => {
   }
 
   // Agent 4: Sales & Product (Discount, Promo, Product Info, Positive Feedback)
-  if (hasAny([
-    /discount/, /promo/, /code/, /coupon/, /invalid/,
-    /how\s+to\s+use/, /recommend/, /ingredient/, /what\s+is/,
-    /thank/, /love/, /great/, /amazing/
-  ])) {
+  if (
+    hasAny([
+      /discount/,
+      /promo/,
+      /code/,
+      /coupon/,
+      /invalid/,
+      /how\s+to\s+use/,
+      /recommend/,
+      /ingredient/,
+      /what\s+is/,
+      /thank/,
+      /love/,
+      /great/,
+      /amazing/
+    ])
+  ) {
     return {
       intent: 'SALES_PRODUCT',
       confidence: 0.6,
@@ -112,7 +151,7 @@ export const classifyIntent = async (
 
   const systemPrompt =
     'You are the Main Router (Switchboard Operator) for an ecommerce support AI. ' +
-    'Your job is to classify the user\'s need into one of 4 specialized agents.\n\n' +
+    "Your job is to classify the user's need into one of 4 specialized agents.\n\n" +
     'AGENTS:\n' +
     '1. ORDER_MANAGEMENT: Shipping delays, "Where is my order?", Order modification (address change, cancel BEFORE ship).\n' +
     '2. RESOLUTION_REFUND: Wrong item, Missing item, Product ineffective ("didn\'t work"), Refund requests (after delivery).\n' +

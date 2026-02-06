@@ -66,12 +66,24 @@ export const shopify_update_order_shipping_address = tool(
         // The following fields are optional in the Zod schema,
         // but can be undefined in the tool call if not provided.
         // We pass them only if they exist.
-        ...(input.shippingAddress.firstName ? { firstName: input.shippingAddress.firstName } : {}),
-        ...(input.shippingAddress.lastName ? { lastName: input.shippingAddress.lastName } : {}),
-        ...(input.shippingAddress.company ? { company: input.shippingAddress.company } : {}),
-        ...(input.shippingAddress.address2 ? { address2: input.shippingAddress.address2 } : {}),
-        ...(input.shippingAddress.provinceCode ? { provinceCode: input.shippingAddress.provinceCode } : {}),
-        ...(input.shippingAddress.phone ? { phone: input.shippingAddress.phone } : {})
+        ...(input.shippingAddress.firstName
+          ? { firstName: input.shippingAddress.firstName }
+          : {}),
+        ...(input.shippingAddress.lastName
+          ? { lastName: input.shippingAddress.lastName }
+          : {}),
+        ...(input.shippingAddress.company
+          ? { company: input.shippingAddress.company }
+          : {}),
+        ...(input.shippingAddress.address2
+          ? { address2: input.shippingAddress.address2 }
+          : {}),
+        ...(input.shippingAddress.provinceCode
+          ? { provinceCode: input.shippingAddress.provinceCode }
+          : {}),
+        ...(input.shippingAddress.phone
+          ? { phone: input.shippingAddress.phone }
+          : {})
       }
     })
   },

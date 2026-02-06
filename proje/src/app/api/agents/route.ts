@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createWorkflow } from '../../../lib/agents/workflow'
-import { HumanMessage, ToolMessage, AIMessage, BaseMessage } from '@langchain/core/messages'
+import {
+  HumanMessage,
+  ToolMessage,
+  AIMessage,
+  BaseMessage
+} from '@langchain/core/messages'
 import { ConfigurationError } from '../../../lib/config/env'
 
 export async function POST(request: Request) {
@@ -32,11 +37,11 @@ export async function POST(request: Request) {
     }
 
     // Run the graph
-    // We use .invoke() to get the final state. 
+    // We use .invoke() to get the final state.
     // To stream logs in real-time would require .stream() and Server-Sent Events (SSE) or AI SDK streaming.
     // For now, we return the full execution log at the end.
     const result = await app.invoke(initialState, config)
-    
+
     const lastMessage = result.messages[result.messages.length - 1]
     const content =
       typeof lastMessage.content === 'string'
@@ -44,22 +49,28 @@ export async function POST(request: Request) {
         : JSON.stringify(lastMessage.content)
 
     // Extract logs from message history (Tool calls and results)
-    const executionLogs = result.messages.map((msg: BaseMessage) => {
-      if (msg instanceof ToolMessage) {
-        return {
-          type: 'tool_output',
-          name: msg.name,
-          content: msg.content
+    const executionLogs = result.messages
+      .map((msg: BaseMessage) => {
+        if (msg instanceof ToolMessage) {
+          return {
+            type: 'tool_output',
+            name: msg.name,
+            content: msg.content
+          }
         }
-      }
-      if (msg instanceof AIMessage && msg.tool_calls && msg.tool_calls.length > 0) {
-        return {
-          type: 'tool_call',
-          calls: msg.tool_calls
+        if (
+          msg instanceof AIMessage &&
+          msg.tool_calls &&
+          msg.tool_calls.length > 0
+        ) {
+          return {
+            type: 'tool_call',
+            calls: msg.tool_calls
+          }
         }
-      }
-      return null
-    }).filter(Boolean)
+        return null
+      })
+      .filter(Boolean)
 
     return NextResponse.json({
       success: true,
@@ -79,7 +90,8 @@ export async function POST(request: Request) {
           success: false,
           code: error.code,
           error: error.message,
-          suggestion: 'Lütfen proje ana dizinindeki .env.local dosyasını kontrol edin ve eksik anahtarları (örn: OPENAI_API_KEY) ekleyin.'
+          suggestion:
+            'Lütfen proje ana dizinindeki .env.local dosyasını kontrol edin ve eksik anahtarları (örn: OPENAI_API_KEY) ekleyin.'
         },
         { status: 503 }
       )
@@ -89,7 +101,10 @@ export async function POST(request: Request) {
       {
         success: false,
         code: 'INTERNAL_SERVER_ERROR',
-        error: error instanceof Error ? error.message : 'Bilinmeyen bir sunucu hatası oluştu.'
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Bilinmeyen bir sunucu hatası oluştu.'
       },
       { status: 500 }
     )

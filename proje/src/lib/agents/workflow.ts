@@ -1,8 +1,4 @@
-import {
-  StateGraph,
-  START,
-  END
-} from '@langchain/langgraph'
+import { StateGraph, START, END } from '@langchain/langgraph'
 import { ToolNode } from '@langchain/langgraph/prebuilt'
 import { GraphState } from './state'
 import { classifyIntent } from './routerAgent'
@@ -23,11 +19,10 @@ const routerNode = async (state: typeof GraphState.State) => {
       ? lastMessage.content
       : String(lastMessage.content)
 
-// Add logging wrapper around the tool node or handle it via a custom node if needed.
-// For simplicity, we rely on LangGraph's message history to trace tool calls.
-// But to explicitly add logs to our 'logs' state, we can use a custom function node that runs after tools?
-// Or better: Let's extract logs from 'messages' at the very end in the API route, as ToolMessages already contain the info.
-
+  // Add logging wrapper around the tool node or handle it via a custom node if needed.
+  // For simplicity, we rely on LangGraph's message history to trace tool calls.
+  // But to explicitly add logs to our 'logs' state, we can use a custom function node that runs after tools?
+  // Or better: Let's extract logs from 'messages' at the very end in the API route, as ToolMessages already contain the info.
 
   const decision = await classifyIntent(text)
 
@@ -117,7 +112,10 @@ export const createWorkflow = () => {
     // 3. Specialist Agents -> Tools OR End (Conditional)
     .addConditionalEdges('order_management', shouldContinue, ['tools', END])
     .addConditionalEdges('resolution_refund', shouldContinue, ['tools', END])
-    .addConditionalEdges('subscription_retention', shouldContinue, ['tools', END])
+    .addConditionalEdges('subscription_retention', shouldContinue, [
+      'tools',
+      END
+    ])
     .addConditionalEdges('sales_product', shouldContinue, ['tools', END])
 
     // 4. Tools -> Return to the agent that called them

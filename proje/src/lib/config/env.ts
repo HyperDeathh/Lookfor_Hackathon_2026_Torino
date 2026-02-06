@@ -10,7 +10,9 @@ export class ConfigurationError extends Error {
 }
 
 const serverEnvSchema = z.object({
-  OPENAI_API_KEY: z.string().min(1, 'OPENAI_API_KEY eksik. Lütfen geçerli bir key girin.'),
+  OPENAI_API_KEY: z
+    .string()
+    .min(1, 'OPENAI_API_KEY eksik. Lütfen geçerli bir key girin.'),
   LANGGRAPH_TRACE: z.string().optional()
 })
 
@@ -22,8 +24,10 @@ export const getServerEnv = () => {
 
   if (!parsed.success) {
     // Hangi değişkenin eksik olduğunu bulalım
-    const invalidFields = parsed.error.issues.map(issue => issue.path[0]).join(', ')
-    
+    const invalidFields = parsed.error.issues
+      .map(issue => issue.path[0])
+      .join(', ')
+
     throw new ConfigurationError(
       `Sunucu yapılandırma hatası: [${invalidFields}] eksik veya hatalı.`,
       'MISSING_ENV_VARIABLES'

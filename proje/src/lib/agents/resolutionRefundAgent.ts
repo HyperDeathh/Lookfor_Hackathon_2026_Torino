@@ -10,9 +10,12 @@ const tools = [
       type: 'object',
       properties: {
         id: { type: 'string', description: 'Customer ID' },
-        creditAmount: { 
-          type: 'object', 
-          properties: { amount: { type: 'string' }, currencyCode: { type: 'string' } },
+        creditAmount: {
+          type: 'object',
+          properties: {
+            amount: { type: 'string' },
+            currencyCode: { type: 'string' }
+          },
           required: ['amount', 'currencyCode']
         }
       },
@@ -26,7 +29,10 @@ const tools = [
       type: 'object',
       properties: {
         orderId: { type: 'string' },
-        refundMethod: { type: 'string', enum: ['ORIGINAL_PAYMENT_METHODS', 'STORE_CREDIT'] }
+        refundMethod: {
+          type: 'string',
+          enum: ['ORIGINAL_PAYMENT_METHODS', 'STORE_CREDIT']
+        }
       },
       required: ['orderId', 'refundMethod']
     }
