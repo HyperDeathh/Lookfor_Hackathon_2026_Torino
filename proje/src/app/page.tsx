@@ -70,7 +70,7 @@ const AGENTS: Record<AgentId, AgentMeta> = {
     role: 'Orchestrator',
     accent: '#64748b',
     icon: Workflow,
-    avatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=Felix',
+    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Router&backgroundColor=e2e8f0&glassesProbability=100',
     thinkingText: 'Router is analyzing your request…',
   },
   order: {
@@ -79,7 +79,7 @@ const AGENTS: Record<AgentId, AgentMeta> = {
     role: 'Shipping & Tracking',
     accent: '#3b82f6',
     icon: Box,
-    avatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=Mia',
+    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Order&backgroundColor=dbeafe&glassesProbability=100',
     thinkingText: 'Orders is checking your shipment…',
   },
   refund: {
@@ -88,7 +88,7 @@ const AGENTS: Record<AgentId, AgentMeta> = {
     role: 'Returns & Credits',
     accent: '#f59e0b',
     icon: ShieldCheck,
-    avatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=Leo',
+    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Refund&backgroundColor=fef3c7&glassesProbability=100',
     thinkingText: 'Refunds is reviewing your case…',
   },
   subscription: {
@@ -97,7 +97,7 @@ const AGENTS: Record<AgentId, AgentMeta> = {
     role: 'Retention & Plans',
     accent: '#10b981',
     icon: RefreshCcw,
-    avatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=Zoe',
+    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Subscription&backgroundColor=d1fae5&glassesProbability=100',
     thinkingText: 'Subscriptions is checking your plan…',
   },
   sales: {
@@ -106,7 +106,7 @@ const AGENTS: Record<AgentId, AgentMeta> = {
     role: 'Products & Advice',
     accent: '#8b5cf6',
     icon: ShoppingBag,
-    avatar: 'https://api.dicebear.com/7.x/notionists/svg?seed=Sam',
+    avatar: 'https://api.dicebear.com/9.x/notionists/svg?seed=Sales&backgroundColor=ede9fe&glassesProbability=100',
     thinkingText: 'Sales is finding recommendations…',
   },
 }
