@@ -183,7 +183,7 @@ You must implement an escalation mechanism to be used when required by the workf
 
 When escalation happens, your system must:
 
-- Inform the customer that the issue is being escalated
+- Inform the customer that the issue i  s being escalated
 - Create a short summary for the team (**structured output is preferred**)
 - Stop automatic answer generation for the rest of that session (no further automatic replies)
 

@@ -27,7 +27,18 @@ const routerNode = async (state: typeof GraphState.State) => {
   log('═══════════════════════════════════════════════════════════')
   log('ROUTER NODE - START')
   log('═══════════════════════════════════════════════════════════')
-  
+
+  // --- HACKATHON REQUIREMENT: Stop automation for entire session ---
+  // If the session was previously escalated, do NOT process any further messages
+  if (state.isEscalated) {
+    log('🛑 SESSION ALREADY ESCALATED - refusing to process new messages')
+    log('🛑 Human agent must handle this conversation from now on')
+    return {
+      intent: 'ESCALATED',
+      // This will cause the workflow to end immediately
+    }
+  }
+
   const lastMessage = state.messages[state.messages.length - 1]
   const text =
     typeof lastMessage.content === 'string'
@@ -47,7 +58,7 @@ const routerNode = async (state: typeof GraphState.State) => {
   log('Conversation history for context:', conversationHistory)
 
   const decision = await classifyIntent(text, conversationHistory)
-  
+
   log('--- Router Decision ---')
   log('Intent:', decision.intent)
   log('Confidence:', decision.confidence)
@@ -66,32 +77,32 @@ const toolNodeWithEscalation = async (state: typeof GraphState.State) => {
   log('═══════════════════════════════════════════════════════════')
   log('TOOL NODE - START')
   log('═══════════════════════════════════════════════════════════')
-  
+
   log('Current intent:', state.intent)
   log('isEscalated before tool call:', state.isEscalated)
-  
+
   // Get the last message to see what tool was called
   const lastMsg = state.messages[state.messages.length - 1]
   if ('tool_calls' in lastMsg && Array.isArray(lastMsg.tool_calls)) {
-    log('Tools being called:', lastMsg.tool_calls.map((tc: { name?: string; args?: unknown }) => ({ 
-      name: tc.name, 
-      args: JSON.stringify(tc.args).substring(0, 200) 
+    log('Tools being called:', lastMsg.tool_calls.map((tc: { name?: string; args?: unknown }) => ({
+      name: tc.name,
+      args: JSON.stringify(tc.args).substring(0, 200)
     })))
   }
-  
+
   // Run the base tool node
   const result = await baseToolNode.invoke(state)
 
   log('Tool execution completed')
-  
+
   // Check if any tool message indicates escalation
   const messages = result.messages || []
   log('Tool result messages count:', messages.length)
-  
+
   for (const msg of messages) {
-    log('Tool message name:', msg.name, 'content preview:', 
+    log('Tool message name:', msg.name, 'content preview:',
       typeof msg.content === 'string' ? msg.content.substring(0, 200) : JSON.stringify(msg.content).substring(0, 200))
-    
+
     if (msg.name === 'escalate_to_human') {
       log('🚨 [ESCALATION] Detected escalation tool call - setting isEscalated flag')
       // Parse the escalation summary from the tool output
@@ -126,14 +137,14 @@ const orderManagementAgentNodeWithDebug = async (state: typeof GraphState.State)
   log('═══════════════════════════════════════════════════════════')
   log('Messages count:', state.messages.length)
   log('isEscalated:', state.isEscalated)
-  
+
   const result = await orderManagementAgentNode(state)
-  
+
   const lastMsg = result.messages[result.messages.length - 1]
   log('Agent response content:', typeof lastMsg.content === 'string' ? lastMsg.content.substring(0, 300) : 'non-string')
   log('Agent tool_calls:', 'tool_calls' in lastMsg ? JSON.stringify(lastMsg.tool_calls) : 'none')
   log('ORDER MANAGEMENT AGENT - END')
-  
+
   return result
 }
 
@@ -143,14 +154,14 @@ const resolutionRefundAgentNodeWithDebug = async (state: typeof GraphState.State
   log('═══════════════════════════════════════════════════════════')
   log('Messages count:', state.messages.length)
   log('isEscalated:', state.isEscalated)
-  
+
   const result = await resolutionRefundAgentNode(state)
-  
+
   const lastMsg = result.messages[result.messages.length - 1]
   log('Agent response content:', typeof lastMsg.content === 'string' ? lastMsg.content.substring(0, 300) : 'non-string')
   log('Agent tool_calls:', 'tool_calls' in lastMsg ? JSON.stringify(lastMsg.tool_calls) : 'none')
   log('RESOLUTION REFUND AGENT - END')
-  
+
   return result
 }
 
@@ -160,14 +171,14 @@ const subscriptionRetentionAgentNodeWithDebug = async (state: typeof GraphState.
   log('═══════════════════════════════════════════════════════════')
   log('Messages count:', state.messages.length)
   log('isEscalated:', state.isEscalated)
-  
+
   const result = await subscriptionRetentionAgentNode(state)
-  
+
   const lastMsg = result.messages[result.messages.length - 1]
   log('Agent response content:', typeof lastMsg.content === 'string' ? lastMsg.content.substring(0, 300) : 'non-string')
   log('Agent tool_calls:', 'tool_calls' in lastMsg ? JSON.stringify(lastMsg.tool_calls) : 'none')
   log('SUBSCRIPTION RETENTION AGENT - END')
-  
+
   return result
 }
 
@@ -177,14 +188,14 @@ const salesProductAgentNodeWithDebug = async (state: typeof GraphState.State) =>
   log('═══════════════════════════════════════════════════════════')
   log('Messages count:', state.messages.length)
   log('isEscalated:', state.isEscalated)
-  
+
   const result = await salesProductAgentNode(state)
-  
+
   const lastMsg = result.messages[result.messages.length - 1]
   log('Agent response content:', typeof lastMsg.content === 'string' ? lastMsg.content.substring(0, 300) : 'non-string')
   log('Agent tool_calls:', 'tool_calls' in lastMsg ? JSON.stringify(lastMsg.tool_calls) : 'none')
   log('SALES PRODUCT AGENT - END')
-  
+
   return result
 }
 
@@ -193,7 +204,13 @@ const salesProductAgentNodeWithDebug = async (state: typeof GraphState.State) =>
 // Determine which agent to go to after Router
 const routeToAgent = (state: typeof GraphState.State) => {
   log('routeToAgent called - intent:', state.intent)
-  
+
+  // If session is escalated, end immediately
+  if (state.intent === 'ESCALATED' || state.isEscalated) {
+    log('🛑 ESCALATED session - ending workflow without agent processing')
+    return END
+  }
+
   let target: string
   switch (state.intent) {
     case 'ORDER_MANAGEMENT':
@@ -213,7 +230,7 @@ const routeToAgent = (state: typeof GraphState.State) => {
       // For now, let's route "OTHER" to sales/product as a general receptionist
       target = 'sales_product'
   }
-  
+
   log('Routing to agent:', target)
   return target
 }
@@ -221,7 +238,7 @@ const routeToAgent = (state: typeof GraphState.State) => {
 // Check if the agent requested a tool call or is done
 const shouldContinue = (state: typeof GraphState.State) => {
   log('shouldContinue check - isEscalated:', state.isEscalated)
-  
+
   // --- ESCALATION CHECK (HACKATHON REQUIREMENT) ---
   // If the session is already escalated, STOP all automation
   if (state.isEscalated) {
@@ -248,7 +265,7 @@ const shouldContinue = (state: typeof GraphState.State) => {
     if (hasEscalation) {
       log('🚨 Agent is about to ESCALATE to human via tool call')
     }
-    
+
     log('Tool calls found:', lastMessage.tool_calls.map((tc: { name?: string }) => tc.name))
     log('Decision: continue to TOOLS')
     return 'tools'
@@ -264,16 +281,16 @@ const shouldContinue = (state: typeof GraphState.State) => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const createWorkflow = (checkpointer?: any) => {
   log('Creating workflow graph...')
-  
+
   const routeToolOutput = (state: typeof GraphState.State) => {
     log('routeToolOutput called - intent:', state.intent, 'isEscalated:', state.isEscalated)
-    
+
     // If escalated, end immediately
     if (state.isEscalated) {
       log('🛑 Escalated - ending workflow from tool output')
       return END
     }
-    
+
     let target: string
     switch (state.intent) {
       case 'ORDER_MANAGEMENT':
@@ -293,7 +310,7 @@ export const createWorkflow = (checkpointer?: any) => {
         // NOT to END - that causes no response to be sent!
         target = 'sales_product'
     }
-    
+
     log('Routing tool output back to:', target)
     return target
   }
@@ -311,12 +328,13 @@ export const createWorkflow = (checkpointer?: any) => {
     // 1. Start -> Router
     .addEdge(START, 'router')
 
-    // 2. Router -> Specialist Agent (Conditional)
+    // 2. Router -> Specialist Agent OR End for escalated (Conditional)
     .addConditionalEdges('router', routeToAgent, [
       'order_management',
       'resolution_refund',
       'subscription_retention',
-      'sales_product'
+      'sales_product',
+      END
     ])
 
     // 3. Specialist Agents -> Tools OR End (Conditional)

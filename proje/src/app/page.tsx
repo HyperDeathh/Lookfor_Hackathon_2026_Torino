@@ -131,7 +131,7 @@ const INTENT_TO_AGENT: Record<string, AgentId> = {
   RESOLUTION_REFUND: 'refund',
   SUBSCRIPTION_RETENTION: 'subscription',
   SALES_PRODUCT: 'sales',
-  OTHER: 'router',
+  OTHER: 'sales', // Backend routes OTHER to sales_product agent (Chris)
 }
 
 /* ═══════════════════════════════════════════════════
@@ -446,9 +446,9 @@ export default function Home() {
   const [isActive, setIsActive] = useState(false)
   const [sessionId, setSessionId] = useState('')
   const [customerInfo, setCustomerInfo] = useState({
-    email: 'jane.doe@example.com',
-    firstName: 'Jane',
-    lastName: 'Doe',
+    email: 'baki@lookfor.ai',
+    firstName: 'Baki',
+    lastName: 'Test',
     shopifyId: 'cust_7f3a9b2c',
   })
 
@@ -1335,7 +1335,6 @@ export default function Home() {
                       type="text"
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
-                      disabled={isLoading}
                       placeholder={isLoading ? `${AGENTS[thinkingAgent || activeAgent].name} is thinking…` : 'Type your message…'}
                       className="flex-1 px-4 py-3 text-sm bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-300 transition-all disabled:opacity-50 placeholder:text-slate-300"
                       style={{

@@ -51,7 +51,10 @@ export async function POST(request: Request) {
     // Handle escalation response - extract customerMessage instead of raw JSON
     let content: string
 
-    if (result.isEscalated && result.escalationSummary) {
+    // Check if this session was already escalated (no new AI messages generated)
+    if (result.intent === 'ESCALATED') {
+      content = "This conversation has been escalated to our support team. A human agent will respond to you shortly. Please wait for their reply. 🙏"
+    } else if (result.isEscalated && result.escalationSummary) {
       // Use the customer-facing message from escalation
       content = result.escalationSummary.customerMessage ||
         "I'm connecting you with our support team who can better assist you. They'll be with you shortly! 🙏"
