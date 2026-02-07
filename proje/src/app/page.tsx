@@ -106,7 +106,7 @@ const AGENTS: Record<AgentId, AgentMeta> = {
     role: 'Retention & Plans',
     accent: '#10b981',
     icon: RefreshCcw,
-    avatar: '/avatars/yeşil-subscriction.png',
+    avatar: '/avatars/yesil-subscription.png',
     thinkingText: 'Quinn is checking your plan…',
   },
   sales: {
@@ -572,115 +572,44 @@ export default function Home() {
         }),
       })
 
-      if (!res.body) throw new Error('No response body')
+      const data = await res.json()
 
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let done = false
-      let finalContent = ''
-      let currentAgent: AgentId = 'router'
-
-      // We will track if we added the assistant message yet
-      let assistantMessageAdded = false
-      let activeWidgetId: string | null = null
-
-      while (!done) {
-        const { value, done: doneReading } = await reader.read()
-        done = doneReading
-        if (value) {
-          const chunk = decoder.decode(value, { stream: true })
-          // Split by newline for NDJSON
-          const lines = chunk.split('\n').filter(line => line.trim() !== '')
-
-          for (const line of lines) {
-            try {
-              const event = JSON.parse(line)
-
-              // Handle specific event types from LangGraph
-              const eventType = event.event
-              const eventName = event.name
-              const eventData = event.data
-
-              // --- 1. Router / Agent Detection ---
-              // LangGraph node names: 'router', 'order_management', etc.
-              // We map them to our IDs
-              if (eventType === 'on_chain_start' && eventName) {
-                if (eventName === 'order_management') { setActiveAgent('order'); currentAgent = 'order'; setThinkingAgent('order'); }
-                else if (eventName === 'resolution_refund') { setActiveAgent('refund'); currentAgent = 'refund'; setThinkingAgent('refund'); }
-                else if (eventName === 'subscription_retention') { setActiveAgent('subscription'); currentAgent = 'subscription'; setThinkingAgent('subscription'); }
-                else if (eventName === 'sales_product') { setActiveAgent('sales'); currentAgent = 'sales'; setThinkingAgent('sales'); }
-
-                // If router finishes, we might want to log it
-                if (eventName === 'router') {
-                  addLog('router', 'route', 'Intent classified')
-                }
-              }
-
-              // --- 2. Tool Calls (Widgets + Logs) ---
-              if (eventType === 'on_tool_start') {
-                addLog(currentAgent, 'tool_call', `Executing ${eventName}...`, undefined, eventData.input)
-
-                // Add In-Chat Widget
-                const widgetId = uid()
-                activeWidgetId = widgetId
-                setMessages(prev => [...prev, {
-                  id: widgetId,
-                  role: 'assistant',
-                  text: '',
-                  agentId: currentAgent,
-                  ts: now(),
-                  widget: { title: `Running ${eventName}...`, status: 'loading' }
-                }])
-              }
-
-              if (eventType === 'on_tool_end') {
-                addLog(currentAgent, 'tool_output', `${eventName} finished`, JSON.stringify(eventData.output))
-
-                // Update Widget to Done
-                if (activeWidgetId) {
-                  setMessages(prev => prev.map(m =>
-                    m.id === activeWidgetId
-                      ? { ...m, widget: { title: `Completed ${eventName}`, status: 'done' } }
-                      : m
-                  ))
-                  activeWidgetId = null
-                }
-              }
-
-              // --- 3. Token Streaming ---
-              if (eventType === 'on_chat_model_stream') {
-                // eventData.chunk.content is the token
-                const token = eventData.chunk?.content || ''
-                if (token) {
-                  finalContent += token
-
-                  if (!assistantMessageAdded) {
-                    setMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', text: finalContent, agentId: currentAgent, ts: now() }])
-                    assistantMessageAdded = true
-                  } else {
-                    // Update last message
-                    setMessages(prev => {
-                      // Ensure we don't overwrite a widget message if it was just added
-                      // If the last message is a widget, we need to find the assistant message or add a new one?
-                      // Actually, assistant message ID is stable. We update by ID.
-                      return prev.map(m => m.id === assistantMsgId ? { ...m, text: finalContent, agentId: currentAgent } : m)
-                    })
-                  }
-                }
-              }
-
-              // --- 4. Final Output from Workflow (if needed) ---
-              // Usually the last 'on_chain_end' of the root graph has the final output.
-              // But streaming tokens is better.
-
-            } catch (e) {
-              console.error('Error parsing JSON chunk', e)
-            }
-          }
-        }
+      if (!data.success) {
+        throw new Error(data.error || 'Unknown error')
       }
 
-      addLog(currentAgent, 'result', 'Response complete')
+      // 1. Logs Processing
+      if (data.data.logs && Array.isArray(data.data.logs)) {
+        data.data.logs.forEach((log: any) => {
+          if (log.type === 'tool_call') {
+            log.calls.forEach((call: any) => {
+              addLog(data.data.intent === 'OTHER' ? 'router' : (INTENT_TO_AGENT[data.data.intent] || 'router'), 'tool_call', `Executing ${call.name}...`, undefined, call.args)
+            })
+          } else if (log.type === 'tool_output') {
+            addLog(data.data.intent === 'OTHER' ? 'router' : (INTENT_TO_AGENT[data.data.intent] || 'router'), 'tool_output', `${log.name} finished`, log.content)
+          }
+      }) // Close logs processing forEach
+      } // Close if logs exist
+
+      // 2. Add Assistant Message
+      const agentId = INTENT_TO_AGENT[data.data.intent] || 'router'
+      const responseText = data.data.response
+
+      setActiveAgent(agentId)
+      
+      if (data.data.intent) {
+         addLog('router', 'route', `Intent: ${data.data.intent}`)
+      }
+
+      setMessages(prev => [...prev, { 
+        id: assistantMsgId, 
+        role: 'assistant', 
+        text: responseText, 
+        agentId: agentId, 
+        ts: now() 
+      }])
+      
+      addLog(agentId, 'result', 'Response complete')
 
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error'
