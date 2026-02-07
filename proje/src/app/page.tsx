@@ -23,6 +23,11 @@ import {
   RotateCcw,
   Cpu,
   Workflow,
+  Settings,
+  Trash2,
+  Plus,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════
@@ -459,6 +464,82 @@ export default function Home() {
   /* ── Logs ── */
   const [logs, setLogs] = useState<LogEntry[]>([])
 
+  /* ── Dynamic MAS Rules ── */
+  interface MasRule {
+    id: string
+    rule: string
+    createdAt: string
+    isActive: boolean
+  }
+  const [masRules, setMasRules] = useState<MasRule[]>([])
+  const [newRuleText, setNewRuleText] = useState('')
+  const [isAddingRule, setIsAddingRule] = useState(false)
+  const [sidebarTab, setSidebarTab] = useState<'feed' | 'rules'>('feed')
+
+  // Fetch rules on mount
+  useEffect(() => {
+    fetch('/api/mas-rules')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setMasRules(data.data)
+      })
+      .catch(err => console.error('Failed to fetch MAS rules:', err))
+  }, [])
+
+  const handleAddRule = async () => {
+    if (!newRuleText.trim() || isAddingRule) return
+    setIsAddingRule(true)
+    try {
+      const res = await fetch('/api/mas-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rule: newRuleText.trim() })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setMasRules(prev => [...prev, data.data])
+        setNewRuleText('')
+      }
+    } catch (err) {
+      console.error('Failed to add rule:', err)
+    } finally {
+      setIsAddingRule(false)
+    }
+  }
+
+  const handleDeleteRule = async (id: string) => {
+    try {
+      const res = await fetch('/api/mas-rules', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setMasRules(prev => prev.filter(r => r.id !== id))
+      }
+    } catch (err) {
+      console.error('Failed to delete rule:', err)
+    }
+  }
+
+  const handleToggleRule = async (id: string) => {
+    try {
+      const res = await fetch('/api/mas-rules', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setMasRules(prev => prev.map(r => r.id === id ? data.data : r))
+      }
+    } catch (err) {
+      console.error('Failed to toggle rule:', err)
+    }
+  }
+
+
 
 
   /* ── Refs ── */
@@ -642,23 +723,23 @@ export default function Home() {
           ══════════════════════════════════════ */}
       <aside className="hidden lg:flex w-[380px] flex-col bg-[#0c0e14] flex-shrink-0">
         {/* Header */}
-        <div className="flex flex-col px-5 py-4 border-b border-white/[0.06] flex-shrink-0 gap-4">
+        <div className="flex flex-col px-5 py-4 border-b border-white/[0.06] flex-shrink-0 gap-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg bg-white/[0.08] flex items-center justify-center">
-                <Cpu className="w-3.5 h-3.5 text-slate-400" />
+                {sidebarTab === 'feed' ? <Cpu className="w-3.5 h-3.5 text-slate-400" /> : <Settings className="w-3.5 h-3.5 text-amber-400" />}
               </div>
               <div>
                 <h2 className="text-[13px] font-semibold text-slate-200 tracking-tight">
-                  Neural Feed
+                  {sidebarTab === 'feed' ? 'Neural Feed' : 'Dynamic Rules'}
                 </h2>
                 <p className="text-[10px] text-slate-500">
-                  Real-time agent trace
+                  {sidebarTab === 'feed' ? 'Real-time agent trace' : 'MAS behavior overrides'}
                 </p>
               </div>
             </div>
 
-            {logs.length > 0 && (
+            {sidebarTab === 'feed' && logs.length > 0 && (
               <div className="flex items-center gap-1.5">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -669,25 +750,129 @@ export default function Home() {
                 </span>
               </div>
             )}
+
+            {sidebarTab === 'rules' && masRules.filter(r => r.isActive).length > 0 && (
+              <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded">
+                {masRules.filter(r => r.isActive).length} ACTIVE
+              </span>
+            )}
+          </div>
+
+          {/* Tabs */}
+          <div className="flex p-1 bg-white/[0.04] rounded-lg">
+            <button
+              onClick={() => setSidebarTab('feed')}
+              className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-[11px] font-medium transition-all ${sidebarTab === 'feed'
+                ? 'bg-slate-700/50 text-white shadow-sm'
+                : 'text-slate-500 hover:text-slate-300'
+                }`}
+            >
+              <Cpu className="w-3 h-3" />
+              Feed
+            </button>
+            <button
+              onClick={() => setSidebarTab('rules')}
+              className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-[11px] font-medium transition-all ${sidebarTab === 'rules'
+                ? 'bg-amber-600/30 text-amber-300 shadow-sm'
+                : 'text-slate-500 hover:text-slate-300'
+                }`}
+            >
+              <Settings className="w-3 h-3" />
+              Rules
+            </button>
           </div>
         </div>
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto px-4 py-3 min-h-0">
-          {logs.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center gap-3">
-              <Terminal className="w-8 h-8 text-slate-700 opacity-40" />
-              <span className="text-[11px] text-slate-600">
-                Waiting for activity…
-              </span>
-            </div>
+          {sidebarTab === 'feed' ? (
+            logs.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center gap-3">
+                <Terminal className="w-8 h-8 text-slate-700 opacity-40" />
+                <span className="text-[11px] text-slate-600">
+                  Waiting for activity…
+                </span>
+              </div>
+            ) : (
+              <>
+                {logs.map((l) => (
+                  <LogCard key={l.id} entry={l} />
+                ))}
+                <div ref={logEndRef} />
+              </>
+            )
           ) : (
-            <>
-              {logs.map((l) => (
-                <LogCard key={l.id} entry={l} />
-              ))}
-              <div ref={logEndRef} />
-            </>
+            <div className="space-y-4">
+              {/* Add new rule input */}
+              <div className="space-y-2">
+                <textarea
+                  value={newRuleText}
+                  onChange={(e) => setNewRuleText(e.target.value)}
+                  placeholder="Enter a new rule... e.g., 'If customer wants address change, mark as NEEDS_ATTENTION and escalate'"
+                  className="w-full h-24 px-3 py-2 text-[12px] bg-white/[0.04] border border-white/[0.08] rounded-lg text-slate-200 placeholder:text-slate-600 resize-none focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+                />
+                <button
+                  onClick={handleAddRule}
+                  disabled={!newRuleText.trim() || isAddingRule}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-amber-500/20 hover:bg-amber-500/30 disabled:opacity-40 disabled:cursor-not-allowed text-amber-300 text-[11px] font-medium rounded-lg transition-colors"
+                >
+                  {isAddingRule ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                  {isAddingRule ? 'Adding...' : 'Add Rule'}
+                </button>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-white/[0.06]" />
+
+              {/* Rules list */}
+              {masRules.length === 0 ? (
+                <div className="py-8 flex flex-col items-center justify-center gap-2">
+                  <Settings className="w-8 h-8 text-slate-700 opacity-40" />
+                  <span className="text-[11px] text-slate-600 text-center">
+                    No dynamic rules yet.<br />Add rules to override agent behavior.
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {masRules.map((rule) => (
+                    <div
+                      key={rule.id}
+                      className={`p-3 rounded-lg border transition-all ${rule.isActive
+                        ? 'bg-amber-500/10 border-amber-500/20'
+                        : 'bg-white/[0.02] border-white/[0.06] opacity-60'
+                        }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <button
+                          onClick={() => handleToggleRule(rule.id)}
+                          className="mt-0.5 flex-shrink-0"
+                          title={rule.isActive ? 'Disable rule' : 'Enable rule'}
+                        >
+                          {rule.isActive ? (
+                            <ToggleRight className="w-5 h-5 text-amber-400" />
+                          ) : (
+                            <ToggleLeft className="w-5 h-5 text-slate-500" />
+                          )}
+                        </button>
+                        <p className="flex-1 text-[11px] text-slate-300 leading-relaxed">
+                          {rule.rule}
+                        </p>
+                        <button
+                          onClick={() => handleDeleteRule(rule.id)}
+                          className="flex-shrink-0 p-1 hover:bg-red-500/20 rounded transition-colors"
+                          title="Delete rule"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-red-400/60 hover:text-red-400" />
+                        </button>
+                      </div>
+                      <p className="mt-1.5 ml-7 text-[9px] text-slate-600">
+                        Added {new Date(rule.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </aside>
