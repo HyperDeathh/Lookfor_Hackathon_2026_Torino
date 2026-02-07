@@ -1,4 +1,11 @@
 {
-  "rules": [],
-  "updatedAt": null
+  "rules": [
+    {
+      "id": "rule_1770468710890_etal13",
+      "rule": "dont answer out of context",
+      "createdAt": "2026-02-07T12:51:50.890Z",
+      "isActive": true
+    }
+  ],
+  "updatedAt": "2026-02-07T12:52:24.636Z"
 }
