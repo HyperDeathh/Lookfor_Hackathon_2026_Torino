@@ -2,32 +2,37 @@ import { SystemMessage } from '@langchain/core/messages'
 import { getLlm } from '../llm/client'
 import { AgentState } from './state'
 import {
-  shopify_get_product_details,
-  shopify_get_product_recommendations,
-  shopify_get_collection_recommendations,
-  shopify_get_related_knowledge_source,
-  shopify_create_discount_code,
-  escalate_to_human
+   shopify_get_product_details,
+   shopify_get_product_recommendations,
+   shopify_get_collection_recommendations,
+   shopify_get_related_knowledge_source,
+   shopify_create_discount_code,
+   escalate_to_human
 } from './tools'
 
 const tools = [
-  shopify_get_product_details,
-  shopify_get_product_recommendations,
-  shopify_get_collection_recommendations,
-  shopify_get_related_knowledge_source,
-  shopify_create_discount_code,
-  escalate_to_human
+   shopify_get_product_details,
+   shopify_get_product_recommendations,
+   shopify_get_collection_recommendations,
+   shopify_get_related_knowledge_source,
+   shopify_create_discount_code,
+   escalate_to_human
 ]
 
 export const salesProductAgentNode = async (state: AgentState) => {
-  const { messages } = state
-  const llm = getLlm()
-  const llmWithTools = llm.bindTools(tools)
+   const { messages, customerInfo } = state
+   const llm = getLlm()
+   const llmWithTools = llm.bindTools(tools)
 
-  const systemPrompt = `You are the Sales & Product Assistant for NATPAT (The Natural Patch Co).
-Your Role: Answer pre-sales questions, product usage questions, handle positive feedback, and act as a friendly brand ambassador.
+   // Build customer context if available
+   const customerContext = customerInfo?.email
+      ? `\n\n=== CUSTOMER CONTEXT ===\nCustomer Email: ${customerInfo.email}\nCustomer Name: ${customerInfo.name || 'Unknown'}\n`
+      : ''
 
-BRAND TONE: Enthusiastic, friendly, knowledgeable, fun! Use emojis appropriately 😊. Sign off with "More patch power to you, Agent xx".
+   const systemPrompt = `You are Chris, the Sales & Product Assistant for NATPAT (The Natural Patch Co).
+Your Role: Answer pre-sales questions, product usage questions, handle positive feedback, and act as a friendly brand ambassador.${customerContext}
+
+BRAND TONE: Enthusiastic, friendly, knowledgeable, fun! Use emojis appropriately 😊. Sign off with "More patch power to you, Chris".
 
 IMPORTANT: You MUST ALWAYS respond with helpful text. Never end a conversation without saying something.
 
@@ -45,7 +50,7 @@ IMPORTANT: You MUST ALWAYS respond with helpful text. Never end a conversation w
 === COMMON SCENARIOS FROM REAL TICKETS ===
 
 1. "PATCH POWER" / POSITIVE FEEDBACK:
-   - Respond enthusiastically: "Thanks so much! 😊 More patch power to you, Agent xx"
+   - Respond enthusiastically: "Thanks so much! 😊 More patch power to you!"
    - If they share success story, celebrate it!
    - Consider asking for review: "We'd love if you'd share your experience in a review!"
 
@@ -103,22 +108,22 @@ Respond in the SAME language the customer uses:
 - Any other language → Try to assist, offer English if needed
 
 === RESPONSE TEMPLATES ===
-Positive feedback: "Thanks so much! 😊 More patch power to you, Agent xx"
+Positive feedback: "Thanks so much! 😊 More patch power to you!"
 Product question: "Great question! [Answer]. Let me know if you need anything else!"
 Greeting: "Hi [Name]! Thanks for reaching out. How can I help you today? 🌟"
 
 Be helpful, enthusiastic, and ALWAYS provide a response.`
 
-  const response = await llmWithTools.invoke([
-    new SystemMessage(systemPrompt),
-    ...messages
-  ])
+   const response = await llmWithTools.invoke([
+      new SystemMessage(systemPrompt),
+      ...messages
+   ])
 
-  // Debug logging
-  console.log('--- Sales Agent Response ---')
-  console.log('Content:', typeof response.content === 'string' ? response.content.substring(0, 200) : response.content)
-  console.log('Tool Calls:', response.tool_calls?.length || 0)
-  console.log('----------------------------')
+   // Debug logging
+   console.log('--- Sales Agent Response ---')
+   console.log('Content:', typeof response.content === 'string' ? response.content.substring(0, 200) : response.content)
+   console.log('Tool Calls:', response.tool_calls?.length || 0)
+   console.log('----------------------------')
 
-  return { messages: [response] }
+   return { messages: [response] }
 }
