@@ -1,6 +1,7 @@
 import { SystemMessage } from '@langchain/core/messages'
 import { getLlm } from '../llm/client'
 import { AgentState } from './state'
+import { getFormattedRulesForPrompt } from './masRulesManager'
 import {
   skio_get_subscriptions,
   skio_skip_next_order_subscription,
@@ -88,7 +89,10 @@ Successful cancellation: "I've cancelled your subscription as requested. We're s
 
 After customer self-cancels: "Awesome! Thanks so much for letting us know, [Name]. 💚"
 
-Be empathetic but strategic. Always offer alternatives before cancellation.`
+Be empathetic but strategic. Always offer alternatives before cancellation.
+
+=== DYNAMIC RULES (Apply these with HIGHEST priority) ===
+${getFormattedRulesForPrompt()}`
 
   const response = await llmWithTools.invoke([
     new SystemMessage(systemPrompt),

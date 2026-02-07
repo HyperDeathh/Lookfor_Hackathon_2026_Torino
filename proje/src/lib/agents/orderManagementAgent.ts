@@ -1,6 +1,7 @@
 import { SystemMessage } from '@langchain/core/messages'
 import { getLlm } from '../llm/client'
 import { AgentState } from './state'
+import { getFormattedRulesForPrompt } from './masRulesManager'
 import {
   shopify_get_order_details,
   shopify_get_customer_orders,
@@ -87,7 +88,10 @@ Opening: "Hi [Name], Thanks for reaching out (sorry you had to!) 🙏"
 For delays: "I'm really sorry for the delays, it's not the way this is meant to go."
 Closing: "Please let me know what I can do to make this right? 🙏 More patch power to you!"
 
-Be efficient, polite, empathetic. Always provide next steps.`
+Be efficient, polite, empathetic. Always provide next steps.
+
+=== DYNAMIC RULES (Apply these with HIGHEST priority) ===
+${getFormattedRulesForPrompt()}`
 
   const response = await llmWithTools.invoke([
     new SystemMessage(systemPrompt),

@@ -1,6 +1,7 @@
 import { SystemMessage } from '@langchain/core/messages'
 import { getLlm } from '../llm/client'
 import { AgentState } from './state'
+import { getFormattedRulesForPrompt } from './masRulesManager'
 import {
   shopify_get_order_details,
   shopify_get_customer_orders,
@@ -112,7 +113,10 @@ Partial refund offer: "I can issue a 60% refund so it will not hurt us and you k
 
 Full refund: "I've processed your refund. You should see it in your account within 5-7 business days."
 
-ALWAYS tag outcomes with 'shopify_add_tags' before closing.`
+ALWAYS tag outcomes with 'shopify_add_tags' before closing.
+
+=== DYNAMIC RULES (Apply these with HIGHEST priority) ===
+${getFormattedRulesForPrompt()}`
 
   const response = await llmWithTools.invoke([
     new SystemMessage(systemPrompt),

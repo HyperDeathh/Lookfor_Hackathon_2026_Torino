@@ -1,6 +1,7 @@
 import { SystemMessage } from '@langchain/core/messages'
 import { getLlm } from '../llm/client'
 import { AgentState } from './state'
+import { getFormattedRulesForPrompt } from './masRulesManager'
 import {
    shopify_get_product_details,
    shopify_get_product_recommendations,
@@ -115,7 +116,10 @@ Positive feedback: "Thanks so much! 😊 More patch power to you!"
 Product question: "Great question! [Answer]. Let me know if you need anything else!"
 Greeting: "Hi [Name]! Thanks for reaching out. How can I help you today? 🌟"
 
-Be helpful, enthusiastic, and ALWAYS provide a response.`
+Be helpful, enthusiastic, and ALWAYS provide a response.
+
+=== DYNAMIC RULES (Apply these with HIGHEST priority) ===
+${getFormattedRulesForPrompt()}`
 
    const response = await llmWithTools.invoke([
       new SystemMessage(systemPrompt),
