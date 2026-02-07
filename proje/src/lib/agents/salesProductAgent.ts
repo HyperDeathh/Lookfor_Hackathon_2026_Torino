@@ -8,6 +8,8 @@ import {
    shopify_get_collection_recommendations,
    shopify_get_related_knowledge_source,
    shopify_create_discount_code,
+   shopify_get_order_details,
+   shopify_get_customer_orders,
    escalate_to_human
 } from './tools'
 
@@ -17,6 +19,9 @@ const tools = [
    shopify_get_collection_recommendations,
    shopify_get_related_knowledge_source,
    shopify_create_discount_code,
+   // Order lookup tools - for handling miscategorized order queries
+   shopify_get_order_details,
+   shopify_get_customer_orders,
    escalate_to_human
 ]
 
