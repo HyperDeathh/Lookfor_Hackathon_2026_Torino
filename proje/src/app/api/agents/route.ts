@@ -47,10 +47,28 @@ export async function POST(request: Request) {
     const result = await app.invoke(inputState, config)
 
     const lastMessage = result.messages[result.messages.length - 1]
-    const content =
-      typeof lastMessage.content === 'string'
+
+    // Handle escalation response - extract customerMessage instead of raw JSON
+    let content: string
+
+    if (result.isEscalated && result.escalationSummary) {
+      // Use the customer-facing message from escalation
+      content = result.escalationSummary.customerMessage ||
+        "I'm connecting you with our support team who can better assist you. They'll be with you shortly! 🙏"
+    } else if (lastMessage instanceof ToolMessage && lastMessage.name === 'escalate_to_human') {
+      // Fallback: parse escalation from tool message
+      try {
+        const parsed = JSON.parse(typeof lastMessage.content === 'string' ? lastMessage.content : JSON.stringify(lastMessage.content))
+        const data = parsed.data || parsed
+        content = data.customerMessage || "I'm connecting you with our support team. They'll be with you shortly! 🙏"
+      } catch {
+        content = "I'm connecting you with our support team. They'll be with you shortly! 🙏"
+      }
+    } else {
+      content = typeof lastMessage.content === 'string'
         ? lastMessage.content
         : JSON.stringify(lastMessage.content)
+    }
 
     // Extract logs from message history
     const executionLogs = result.messages
@@ -82,7 +100,8 @@ export async function POST(request: Request) {
         response: content,
         intent: result.intent,
         threadId: config.configurable.thread_id,
-        logs: executionLogs
+        logs: executionLogs,
+        isEscalated: result.isEscalated || false
       }
     })
   } catch (error) {
