@@ -1,0 +1,10 @@
+services:
+  web:
+    build: .
+    restart: always
+    ports:
+      - 3000:3000
+    env_file:
+      - .env.local
+    # If you want to use a simplified .env file for production, you can switch this to .env
+    # But ensure .env is NOT committed if it contains secrets.
