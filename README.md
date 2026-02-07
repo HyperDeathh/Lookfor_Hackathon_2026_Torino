@@ -55,7 +55,7 @@ Projeyi yerel ortamınızda çalıştırmak için aşağıdaki adımları izleyi
 
 ```bash
 git clone https://github.com/HyperDeathh/Lookfor_Hackathon_2026_Torino
-cd lookfor
+cd Lookfor_Hackathon_2026_Torino
 ```
 
 ### 2. Ortam Değişkenlerini Ayarlayın

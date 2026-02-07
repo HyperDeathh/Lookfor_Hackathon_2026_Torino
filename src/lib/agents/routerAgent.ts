@@ -164,8 +164,13 @@ ${AGENT_CAPABILITIES}
    - If customer says something short like "no its 1004" or "that one" or "yes" or a number:
    - LOOK AT CONVERSATION HISTORY to understand context
    - A number following order inquiry = ORDER_MANAGEMENT (it's an order correction)
-   - NEVER route follow-ups to OTHER just because they're short
+    - NEVER route follow-ups to OTHER just because they're short
 ${historyContext}
+
+7. UNRELATED TOPICS (STRICT):
+   - If the user asks about general knowledge, cooking, math, coding, or anything NOT related to NATPAT, orders, or subscriptions:
+   - Route to "OTHER"
+   - Reason: "Unrelated topic"
 
 ## OUTPUT FORMAT:
 Return ONLY a JSON object:
