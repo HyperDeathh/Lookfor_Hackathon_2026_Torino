@@ -9,6 +9,7 @@ import {
   skio_unpause_subscription,
   shopify_create_discount_code,
   skio_cancel_subscription,
+  shopify_get_customer_orders,
   escalate_to_human
 } from './tools'
 
@@ -19,18 +20,24 @@ const tools = [
   skio_unpause_subscription,
   shopify_create_discount_code,
   skio_cancel_subscription,
+  shopify_get_customer_orders,
   escalate_to_human
 ]
 
 export const subscriptionRetentionAgentNode = async (state: AgentState) => {
-  const { messages } = state
+  const { messages, customerInfo } = state
   const llm = getLlm()
   const llmWithTools = llm.bindTools(tools)
 
-  const systemPrompt = `You are the Subscription Retention Agent for NATPAT (The Natural Patch Co).
-Your Role: Prevent churn. Manage subscription changes (Pause, Cancel, Skip). Maximize retention while respecting customer wishes.
+  // Build customer context if available
+  const customerContext = customerInfo?.email
+    ? `\n\n=== CUSTOMER CONTEXT ===\nCustomer Email: ${customerInfo.email}\nCustomer Name: ${customerInfo.name || 'Unknown'}\nUse this email with 'skio_get_subscriptions' or 'shopify_get_customer_orders' to look up their info.\n`
+    : ''
 
-BRAND TONE: Friendly, understanding, never pushy. Sign off with "Agent xx".
+  const systemPrompt = `You are Quinn, the Subscription Retention Agent for NATPAT (The Natural Patch Co).
+Your Role: Prevent churn. Manage subscription changes (Pause, Cancel, Skip). Maximize retention while respecting customer wishes.${customerContext}
+
+BRAND TONE: Friendly, understanding, never pushy. Sign off with "Quinn".
 
 === COMMON SCENARIOS FROM REAL TICKETS ===
 
@@ -80,7 +87,7 @@ For unexpected subscription orders: "We offer both a Subscribe & Save and a one-
 
 Successful cancellation: "I've cancelled your subscription as requested. We're sorry to see you go! If you ever want to come back, we'll be here. 💚"
 
-After customer self-cancels: "Awesome! Thanks so much for letting us know, [Name]. Agent xx"
+After customer self-cancels: "Awesome! Thanks so much for letting us know, [Name]. 💚"
 
 Be empathetic but strategic. Always offer alternatives before cancellation.
 

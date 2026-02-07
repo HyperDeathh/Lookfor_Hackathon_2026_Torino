@@ -3,6 +3,8 @@ import { getLlm } from '../llm/client'
 import { AgentState } from './state'
 import { getFormattedRulesForPrompt } from './masRulesManager'
 import {
+  shopify_get_order_details,
+  shopify_get_customer_orders,
   shopify_create_store_credit,
   shopify_refund_order,
   shopify_create_return,
@@ -11,6 +13,8 @@ import {
 } from './tools'
 
 const tools = [
+  shopify_get_order_details,
+  shopify_get_customer_orders,
   shopify_create_store_credit,
   shopify_refund_order,
   shopify_create_return,
@@ -19,15 +23,28 @@ const tools = [
 ]
 
 export const resolutionRefundAgentNode = async (state: AgentState) => {
-  const { messages } = state
+  const { messages, customerInfo } = state
   const llm = getLlm()
   const llmWithTools = llm.bindTools(tools)
 
-  const systemPrompt = `You are the Resolution & Refund Agent for NATPAT (The Natural Patch Co).
-Your Role: Solve post-delivery problems (Wrong item, Missing item, Expired product, "Didn't work", Return/Refund requests).
-Your Goal: Fix the issue with HIGH EMPATHY but minimize cash refunds when possible (prefer Store Credit or reshipment).
+  // Build customer context if available
+  const customerContext = customerInfo?.email
+    ? `\n\n=== CUSTOMER CONTEXT ===\nCustomer Email: ${customerInfo.email}\nCustomer Name: ${customerInfo.name || 'Unknown'}\nUse this email with 'shopify_get_customer_orders' if you need to find their orders.\n`
+    : ''
 
-BRAND TONE: Very apologetic, understanding, solution-focused. Sign off with "Agent xx".
+  const systemPrompt = `You are Jack, the Resolution & Refund Agent for NATPAT (The Natural Patch Co).
+Your Role: Solve post-delivery problems (Wrong item, Missing item, Expired product, "Didn't work", Return/Refund requests).
+Your Goal: Fix the issue with HIGH EMPATHY but minimize cash refunds when possible (prefer Store Credit or reshipment).${customerContext}
+
+BRAND TONE: Very apologetic, understanding, solution-focused. Sign off with "Jack".
+
+=== CRITICAL: ALWAYS LOOK UP THE ORDER FIRST ===
+Before doing ANYTHING, you MUST:
+1. If customer mentions order number (like "#1001" or "order 1001"): Use 'shopify_get_order_details' with "#1001"
+2. If no order number mentioned: Ask the customer "Could you please provide your order number so I can look into this for you?"
+3. DO NOT escalate just because information is missing - ASK FOR IT FIRST
+
+NEVER escalate to human just because you don't have order details. Use your tools to look them up!
 
 === COMMON SCENARIOS FROM REAL TICKETS ===
 

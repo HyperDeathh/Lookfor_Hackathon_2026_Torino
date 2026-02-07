@@ -12,7 +12,7 @@ We could talk about this forever, and we should, let’s do it at the hackathon.
 
 ---
 
-## Provider vs. Consumer 
+## Provider vs. Consumer
 
 In this early era, there are two main ways to interact with AI.
 
@@ -199,7 +199,7 @@ Tickets will be provided as an array of objects:
     "conversationId": "<C9ADE635-25BC-4865-9263-DC12004FCCB7@gmail.com>",
     "customerId": "cust_1f9a2c8b",
     "createdAt": "19-Jul-2025 14:41:21",
-    "ConversationType": "email",
+    "conversationType": "email",
     "subject": "NATPAT Order #NP1380209",
     "conversation": "Customer's message: \"Where's my order...\" Agent's message: \"Hi there...\""
   }
@@ -293,6 +293,9 @@ Teams will present their system during evaluation. (~2 mins)
 - Observability and tracing
 - UI and UX clarity
 
+> We intentionally kept the minimum requirements more basic and focused the competition on extra effort, depth, and overall quality. Regardless of the exact task, running an AI coding tool end-to-end during the hackathon will likely produce one of the strongest and most representative solutions—so what matters most is your thinking process, how clearly you communicate it, and the UI/UX polish and product details you add on top.
+> 
+
 ---
 
 ## Submission Expectations
@@ -323,3 +326,9 @@ We strongly recommend your project is runnable with a single command (for exampl
 This hackathon is about building step one properly: taking messy real-world inputs (tickets plus workflow manual) and producing a multi-agent system that can reliably automate a brand’s email workflows, with correct tool usage, correct boundaries, continuous memory, and safe escalation.
 
 Let’s build, argue, and learn together.
+
+# Side Quest
+
+As our on-site side quest, we expect you to update your multi-agent system dynamically when you receive an instruction to do so. Your application should provide an interface to accept a MAS update prompt and update the system behavior accordingly. For example:
+
+“If a customer wants to update their order address, do not update it directly. Mark the order as ‘NEEDS_ATTENTION’ and escalate the situation.”
