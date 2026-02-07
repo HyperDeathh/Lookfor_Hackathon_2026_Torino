@@ -23,7 +23,6 @@ import {
   RotateCcw,
   Cpu,
   Workflow,
-  FileText,
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════
@@ -460,20 +459,7 @@ export default function Home() {
   /* ── Logs ── */
   const [logs, setLogs] = useState<LogEntry[]>([])
 
-  /* ── Docs ── */
-  const [docs, setDocs] = useState<{ name: string; path: string }[]>([])
-  const [activeTab, setActiveTab] = useState<'feed' | 'docs'>('feed')
 
-  useEffect(() => {
-    fetch('/api/docs')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          setDocs(data.data)
-        }
-      })
-      .catch((err) => console.error('Failed to fetch docs:', err))
-  }, [])
 
   /* ── Refs ── */
   const chatEndRef = useRef<HTMLDivElement>(null)
@@ -660,19 +646,19 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg bg-white/[0.08] flex items-center justify-center">
-                {activeTab === 'feed' ? <Cpu className="w-3.5 h-3.5 text-slate-400" /> : <FileText className="w-3.5 h-3.5 text-slate-400" />}
+                <Cpu className="w-3.5 h-3.5 text-slate-400" />
               </div>
               <div>
                 <h2 className="text-[13px] font-semibold text-slate-200 tracking-tight">
-                  {activeTab === 'feed' ? 'Neural Feed' : 'Documentation'}
+                  Neural Feed
                 </h2>
                 <p className="text-[10px] text-slate-500">
-                  {activeTab === 'feed' ? 'Real-time agent trace' : 'Project documentation'}
+                  Real-time agent trace
                 </p>
               </div>
             </div>
 
-            {activeTab === 'feed' && logs.length > 0 && (
+            {logs.length > 0 && (
               <div className="flex items-center gap-1.5">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -684,84 +670,24 @@ export default function Home() {
               </div>
             )}
           </div>
-
-          {/* Tabs */}
-          <div className="flex p-1 bg-white/[0.04] rounded-lg">
-            <button
-              onClick={() => setActiveTab('feed')}
-              className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-[11px] font-medium transition-all ${activeTab === 'feed'
-                  ? 'bg-slate-700/50 text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-300'
-                }`}
-            >
-              <Cpu className="w-3 h-3" />
-              Feed
-            </button>
-            <button
-              onClick={() => setActiveTab('docs')}
-              className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-[11px] font-medium transition-all ${activeTab === 'docs'
-                  ? 'bg-slate-700/50 text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-300'
-                }`}
-            >
-              <FileText className="w-3 h-3" />
-              Docs
-            </button>
-          </div>
         </div>
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto px-4 py-3 min-h-0">
-          {activeTab === 'feed' ? (
-            logs.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center gap-3">
-                <Terminal className="w-8 h-8 text-slate-700 opacity-40" />
-                <span className="text-[11px] text-slate-600">
-                  Waiting for activity…
-                </span>
-              </div>
-            ) : (
-              <>
-                {logs.map((l) => (
-                  <LogCard key={l.id} entry={l} />
-                ))}
-                <div ref={logEndRef} />
-              </>
-            )
-          ) : (
-            <div className="space-y-2">
-              {docs.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center gap-3 py-10">
-                  <FileText className="w-8 h-8 text-slate-700 opacity-40" />
-                  <span className="text-[11px] text-slate-600">
-                    No documentation found.
-                  </span>
-                </div>
-              ) : (
-                docs.map((doc) => (
-                  <a
-                    key={doc.name}
-                    href={doc.path} // Simple link for now, could be a modal or preview
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.07] transition-all group"
-                  >
-                    <div className="w-8 h-8 rounded-md bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-emerald-400 group-hover:bg-emerald-400/10 transition-colors">
-                      <FileText className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-[12px] font-medium text-slate-200 truncate group-hover:text-white transition-colors">
-                        {doc.name}
-                      </h3>
-                      <p className="text-[10px] text-slate-500 truncate">
-                        Documentation
-                      </p>
-                    </div>
-                    <ChevronRight className="w-3 h-3 text-slate-600 group-hover:text-slate-400 transition-colors" />
-                  </a>
-                ))
-              )}
+          {logs.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center gap-3">
+              <Terminal className="w-8 h-8 text-slate-700 opacity-40" />
+              <span className="text-[11px] text-slate-600">
+                Waiting for activity…
+              </span>
             </div>
+          ) : (
+            <>
+              {logs.map((l) => (
+                <LogCard key={l.id} entry={l} />
+              ))}
+              <div ref={logEndRef} />
+            </>
           )}
         </div>
       </aside>
