@@ -122,9 +122,15 @@ const extractJson = (content: string): unknown | null => {
 }
 
 export const classifyIntent = async (
-  message: string
+  message: string,
+  conversationHistory?: string[]
 ): Promise<RouterDecision> => {
   const llm = getLlm()
+
+  // Build conversation context
+  const historyContext = conversationHistory && conversationHistory.length > 0
+    ? `\n\n## CONVERSATION HISTORY (for context):\n${conversationHistory.map((m, i) => `${i + 1}. ${m}`).join('\n')}\n\nNOTE: Consider the conversation history when determining intent. A short message like "no its 1004" following an order tracking conversation should be treated as ORDER_MANAGEMENT continuation.`
+    : ''
 
   const systemPrompt = `You are an intelligent Router for NATPAT (The Natural Patch Co) customer support AI.
 Your job is to analyze the customer's message and route them to the BEST specialist agent.
@@ -153,6 +159,13 @@ ${AGENT_CAPABILITIES}
    - How to use, ingredients, recommendations → SALES_PRODUCT
 
 5. LANGUAGE: Customer may write in English or Turkish. Understand intent regardless of language.
+
+6. FOLLOW-UP MESSAGES (CRITICAL!):
+   - If customer says something short like "no its 1004" or "that one" or "yes" or a number:
+   - LOOK AT CONVERSATION HISTORY to understand context
+   - A number following order inquiry = ORDER_MANAGEMENT (it's an order correction)
+   - NEVER route follow-ups to OTHER just because they're short
+${historyContext}
 
 ## OUTPUT FORMAT:
 Return ONLY a JSON object:

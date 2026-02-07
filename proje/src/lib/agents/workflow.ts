@@ -38,7 +38,15 @@ const routerNode = async (state: typeof GraphState.State) => {
   log('Total messages in state:', state.messages.length)
   log('Current isEscalated:', state.isEscalated)
 
-  const decision = await classifyIntent(text)
+  // Build conversation history for context (last 5 human messages)
+  const conversationHistory = state.messages
+    .filter(m => m._getType() === 'human')
+    .slice(-5)
+    .map(m => typeof m.content === 'string' ? m.content : String(m.content))
+
+  log('Conversation history for context:', conversationHistory)
+
+  const decision = await classifyIntent(text, conversationHistory)
   
   log('--- Router Decision ---')
   log('Intent:', decision.intent)
@@ -266,7 +274,7 @@ export const createWorkflow = (checkpointer?: any) => {
       return END
     }
     
-    let target: string | typeof END
+    let target: string
     switch (state.intent) {
       case 'ORDER_MANAGEMENT':
         target = 'order_management'
@@ -281,7 +289,9 @@ export const createWorkflow = (checkpointer?: any) => {
         target = 'sales_product'
         break
       default:
-        target = END
+        // OTHER intent should also go back to sales_product to generate a response
+        // NOT to END - that causes no response to be sent!
+        target = 'sales_product'
     }
     
     log('Routing tool output back to:', target)
