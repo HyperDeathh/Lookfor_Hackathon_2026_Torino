@@ -14,4 +14,4 @@ export const AGENT_LABELS: Record<AgentId, string> = {
   resolution_refund: 'Resolution & Refund Agent',
   subscription_retention: 'Subscription Retention Agent',
   sales_product: 'Sales & Product Assistant'
-}
+}   

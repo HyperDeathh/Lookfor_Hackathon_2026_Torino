@@ -16,7 +16,7 @@ import {
   shopifyGetRelatedKnowledgeSource
 } from '../../tools/shopifyTools'
 import {
-  skioGetSubscriptionStatus,
+  skioGetSubscriptions,
   skioSkipNextOrderSubscription,
   skioPauseSubscription,
   skioUnpauseSubscription,
@@ -62,50 +62,35 @@ export const shopify_update_order_shipping_address = tool(
     return await shopifyUpdateOrderShippingAddress({
       orderId: input.orderId,
       shippingAddress: {
+        firstName: input.shippingAddress.firstName,
+        lastName: input.shippingAddress.lastName,
+        company: input.shippingAddress.company,
         address1: input.shippingAddress.address1,
+        address2: input.shippingAddress.address2,
         city: input.shippingAddress.city,
-        zip: input.shippingAddress.zip,
+        provinceCode: input.shippingAddress.provinceCode,
         country: input.shippingAddress.country,
-        // The following fields are optional in the Zod schema,
-        // but can be undefined in the tool call if not provided.
-        // We pass them only if they exist.
-        ...(input.shippingAddress.firstName
-          ? { firstName: input.shippingAddress.firstName }
-          : {}),
-        ...(input.shippingAddress.lastName
-          ? { lastName: input.shippingAddress.lastName }
-          : {}),
-        ...(input.shippingAddress.company
-          ? { company: input.shippingAddress.company }
-          : {}),
-        ...(input.shippingAddress.address2
-          ? { address2: input.shippingAddress.address2 }
-          : {}),
-        ...(input.shippingAddress.provinceCode
-          ? { provinceCode: input.shippingAddress.provinceCode }
-          : {}),
-        ...(input.shippingAddress.phone
-          ? { phone: input.shippingAddress.phone }
-          : {})
+        zip: input.shippingAddress.zip,
+        phone: input.shippingAddress.phone
       }
     })
   },
   {
     name: 'shopify_update_order_shipping_address',
-    description: 'Update the shipping address for an unfulfilled order',
+    description: "Update an order's shipping address (Shopify orderUpdate). All address fields are required.",
     schema: z.object({
-      orderId: z.string(),
+      orderId: z.string().describe('Order GID.'),
       shippingAddress: z.object({
-        firstName: z.string().optional(),
-        lastName: z.string().optional(),
-        company: z.string().optional(),
-        address1: z.string(),
-        address2: z.string().optional(),
-        city: z.string(),
-        provinceCode: z.string().optional(),
-        country: z.string(),
-        zip: z.string(),
-        phone: z.string().optional()
+        firstName: z.string().describe('First name.'),
+        lastName: z.string().describe('Last name.'),
+        company: z.string().describe('Company name (use empty string if none).'),
+        address1: z.string().describe('Address line 1.'),
+        address2: z.string().describe('Address line 2 (use empty string if none).'),
+        city: z.string().describe('City.'),
+        provinceCode: z.string().describe('Province/state code.'),
+        country: z.string().describe('Country.'),
+        zip: z.string().describe('ZIP/postal code.'),
+        phone: z.string().describe('Phone number.')
       })
     })
   }
@@ -146,6 +131,12 @@ export const escalate_to_human = tool(
   async input => {
     // This tool doesn't call an external API - it returns structured data
     // that the system uses to stop automation and notify the team
+    console.log('🚨🚨🚨 ESCALATE_TO_HUMAN TOOL CALLED 🚨🚨🚨')
+    console.log('Reason:', input.reason)
+    console.log('Customer Message:', input.customerMessage)
+    console.log('Internal Summary:', input.internalSummary)
+    console.log('Suggested Action:', input.suggestedAction)
+    
     const summary = {
       reason: input.reason,
       customerMessage: input.customerMessage,
@@ -153,7 +144,7 @@ export const escalate_to_human = tool(
       suggestedAction: input.suggestedAction,
       escalatedAt: new Date().toISOString()
     }
-    console.log('[ESCALATION] Ticket escalated to human:', summary)
+    console.log('[ESCALATION] Ticket escalated to human:', JSON.stringify(summary, null, 2))
     return JSON.stringify({
       success: true,
       data: summary
@@ -161,7 +152,25 @@ export const escalate_to_human = tool(
   },
   {
     name: 'escalate_to_human',
-    description: 'Escalate the conversation to a human agent. Use this when you cannot safely proceed, when the workflow manual requires escalation, or when the customer explicitly requests to speak with a human. IMPORTANT: After calling this tool, you MUST stop generating automatic replies.',
+    description: `LAST RESORT ONLY - Escalate the conversation to a human agent. 
+    
+⚠️ DO NOT USE THIS TOOL unless absolutely necessary. Most issues can be resolved with other tools.
+
+ONLY use escalate_to_human when:
+1. Customer EXPLICITLY says "I want to speak to a human" or "Let me talk to a real person"
+2. You have ALREADY tried other tools and they ALL failed
+3. Legal threats or BBB/lawsuit mentions
+4. Suspected fraud with clear evidence
+5. Technical system errors that prevent ANY tool from working
+
+DO NOT escalate for:
+- Normal order tracking (use shopify_get_order_details)
+- Normal refund requests (use shopify_refund_order)
+- Normal subscription cancellations (use skio_cancel_subscription)
+- Customer being upset (offer solutions first)
+- Questions you can answer with knowledge source
+
+IMPORTANT: After calling this tool, automation will STOP completely.`,
     schema: z.object({
       reason: z.enum([
         'CUSTOMER_REQUEST',
@@ -176,7 +185,7 @@ export const escalate_to_human = tool(
         'REFUND_LIMIT_EXCEEDED',
         'FRAUD_SUSPECTED',
         'OTHER'
-      ]).describe('Why escalation is needed.'),
+      ]).describe('Why escalation is needed - must be a serious issue that cannot be handled by other tools.'),
       customerMessage: z.string().describe('A polite message to send to the customer informing them of the escalation.'),
       internalSummary: z.string().describe('A structured summary for the support team including: issue type, actions taken, customer sentiment, and recommended next steps.'),
       suggestedAction: z.string().optional().describe('What the human agent should do next.')
@@ -254,15 +263,15 @@ export const shopify_add_tags = tool(
 
 // --- Subscription Tools ---
 
-export const skio_get_subscription_status = tool(
+export const skio_get_subscriptions = tool(
   async input => {
-    return await skioGetSubscriptionStatus(input)
+    return await skioGetSubscriptions(input)
   },
   {
-    name: 'skio_get_subscription_status',
-    description: 'Check status of a subscription',
+    name: 'skio_get_subscriptions',
+    description: 'Gets the subscription status of a customer. Returns an array of all subscriptions for the given email.',
     schema: z.object({
-      email: z.string()
+      email: z.string().describe('Email of the user whose subscription information is retrieved')
     })
   }
 )
@@ -418,7 +427,7 @@ export const ALL_TOOLS = [
   shopify_create_return,
   shopify_add_tags,
   // Subscriptions
-  skio_get_subscription_status,
+  skio_get_subscriptions,
   skio_skip_next_order_subscription,
   skio_pause_subscription,
   skio_unpause_subscription,

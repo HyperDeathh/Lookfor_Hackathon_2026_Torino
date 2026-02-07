@@ -35,51 +35,56 @@ const routerDecisionSchema = z.object({
 
 const AGENT_CAPABILITIES = `
 ## AGENT 1: ORDER_MANAGEMENT
-This agent handles pre-delivery issues and order modifications.
+This agent handles PRE-DELIVERY issues and order modifications.
 Available Tools:
 - shopify_get_order_details: Look up order status, tracking info, items, shipping address
 - shopify_get_customer_orders: List all orders for a customer by email
 - shopify_update_order_shipping_address: Change delivery address (only if not yet shipped)
 - shopify_cancel_order: Cancel an order (only if unfulfilled/not shipped yet)
 
-Use this agent when the customer needs:
-- Track their order / "Where is my order?"
-- Check order status
-- Cancel an unfulfilled order
-- Change shipping address before delivery
+ROUTE HERE when customer:
+- Asks "Where is my order?" / "Siparişim nerede?"
+- Wants to track their order / check order status
+- Asks about shipping delays or delivery time
+- Wants to cancel an UNFULFILLED order
+- Needs to change shipping address before delivery
+- Says "Order not shipped yet" / hasn't received shipping confirmation
 
 ## AGENT 2: RESOLUTION_REFUND
-This agent handles post-delivery problems and refunds.
+This agent handles POST-DELIVERY problems and refunds.
 Available Tools:
 - shopify_create_store_credit: Give store credit to compensate customer
 - shopify_refund_order: Process a refund back to original payment method
 - shopify_create_return: Create a return label for product return
-- shopify_add_tags: Tag the order/customer for tracking (e.g., "wrong_item", "refund_processed")
+- shopify_add_tags: Tag the order/customer for tracking
 
-Use this agent when the customer needs:
-- Report wrong item received
-- Report missing item from order
-- Product doesn't work / is defective
-- Request a refund (after delivery)
-- Request a return
+ROUTE HERE when customer:
+- Received WRONG item
+- Received EXPIRED product
+- Product doesn't work / is defective / "patches fall off"
+- Wants a REFUND (after delivery)
+- Wants to RETURN product
+- Says "Missing item from my order"
+- Says "This place is a joke" + wants refund (angry after-delivery)
+- Package says delivered but they didn't receive it
 
 ## AGENT 3: SUBSCRIPTION_RETENTION
-This agent manages subscriptions and prevents churn.
+This agent manages SUBSCRIPTIONS and prevents churn.
 Available Tools:
-- skio_get_subscription_status: Check subscription details, next billing date, status
+- skio_get_subscriptions: Check subscription details, next billing date
 - skio_skip_next_order_subscription: Skip the next scheduled shipment
 - skio_pause_subscription: Temporarily pause the subscription
 - skio_unpause_subscription: Resume a paused subscription
 - skio_cancel_subscription: Cancel the subscription entirely
 - shopify_create_discount_code: Create a discount code as retention offer
 
-Use this agent when the customer needs:
-- Cancel their subscription
-- Pause their subscription
-- Skip next shipment / "too much product"
-- Check subscription status / billing date
-- Resume subscription
-- Any subscription billing issues
+ROUTE HERE when customer:
+- Wants to cancel their SUBSCRIPTION / "cancel all future orders"
+- Says "Why did I receive another order?" (subscription confusion)
+- Wants to pause/skip subscription
+- Asks about subscription status / billing date
+- Wants to resume subscription
+- Says "Stop charging me" / billing concerns
 
 ## AGENT 4: SALES_PRODUCT
 This agent handles pre-sales questions and positive interactions.
@@ -88,15 +93,17 @@ Available Tools:
 - shopify_get_product_recommendations: Suggest related products
 - shopify_get_collection_recommendations: Recommend product collections
 - shopify_get_related_knowledge_source: Search FAQs, blogs, help articles
-- shopify_create_discount_code: Generate discount codes for sales/promotions
+- shopify_create_discount_code: Generate discount codes for promotions
 
-Use this agent when the customer needs:
-- Product recommendations
-- How to use a product
-- Ingredient/material questions
-- Discount code help / promo issues
-- Positive feedback / thank you messages
+ROUTE HERE when customer:
+- Says "Patch Power" or gives positive feedback/thanks
+- Asks product usage questions ("How do I use pet patches?")
+- Wants product recommendations
+- Asks about ingredients or materials
+- Has discount code issues / promo questions
+- Just says hello / greeting
 - General pre-purchase questions
+- Asks "Are patches reusable?"
 `
 
 const extractJson = (content: string): unknown | null => {
@@ -119,7 +126,7 @@ export const classifyIntent = async (
 ): Promise<RouterDecision> => {
   const llm = getLlm()
 
-  const systemPrompt = `You are an intelligent Router for an ecommerce support AI.
+  const systemPrompt = `You are an intelligent Router for NATPAT (The Natural Patch Co) customer support AI.
 Your job is to analyze the customer's message and route them to the BEST specialist agent.
 
 YOU MUST THINK ABOUT WHICH TOOLS ARE NEEDED to help the customer.
@@ -127,20 +134,25 @@ Each agent has specific tools - route to the agent whose tools can solve the pro
 
 ${AGENT_CAPABILITIES}
 
-## ROUTING RULES:
+## CRITICAL ROUTING RULES:
 
-1. THINK ABOUT THE TOOLS: What action needs to be taken? Which agent has those tools?
+1. ORDER vs SUBSCRIPTION:
+   - "Cancel my order" / "Siparişimi iptal et" → ORDER_MANAGEMENT
+   - "Cancel my subscription" / "Cancel all future orders" / "Aboneliğimi iptal et" → SUBSCRIPTION_RETENTION
+   - "Why did I get another order?" (confusion) → SUBSCRIPTION_RETENTION
+   - Just "cancel" without context → Ask which one, default ORDER_MANAGEMENT
 
-2. ORDER vs SUBSCRIPTION CANCELLATION:
-   - "Cancel my order" / "Siparişimi iptal et" → ORDER_MANAGEMENT (uses shopify_cancel_order)
-   - "Cancel my subscription" / "Aboneliğimi iptal et" → SUBSCRIPTION_RETENTION (uses skio_cancel_subscription)
-   - Just "iptal" without context → Ask which one, but default to ORDER_MANAGEMENT
+2. PRE-DELIVERY vs POST-DELIVERY:
+   - Problem BEFORE delivery (tracking, cancel, address change) → ORDER_MANAGEMENT
+   - Problem AFTER delivery (wrong item, broken, refund, expired) → RESOLUTION_REFUND
 
-3. REFUND vs ORDER ISSUES:
-   - Problem BEFORE delivery (tracking, cancel, address) → ORDER_MANAGEMENT
-   - Problem AFTER delivery (wrong item, broken, refund) → RESOLUTION_REFUND
+3. POSITIVE MESSAGES:
+   - "Patch Power", "Thanks!", positive feedback → SALES_PRODUCT
 
-4. The user may write in English or Turkish. Understand intent regardless of language.
+4. PRODUCT QUESTIONS:
+   - How to use, ingredients, recommendations → SALES_PRODUCT
+
+5. LANGUAGE: Customer may write in English or Turkish. Understand intent regardless of language.
 
 ## OUTPUT FORMAT:
 Return ONLY a JSON object:

@@ -9,27 +9,43 @@ import { resolutionRefundAgentNode } from './resolutionRefundAgent'
 import { subscriptionRetentionAgentNode } from './subscriptionRetentionAgent'
 import { salesProductAgentNode } from './salesProductAgent'
 
+// ═══════════════════════════════════════════════════════════════════════════
+// DEBUG MODE - Set to true for full logging
+// ═══════════════════════════════════════════════════════════════════════════
+const DEBUG = true
+
+const log = (...args: unknown[]) => {
+  if (DEBUG) {
+    console.log('[DEBUG]', new Date().toISOString(), ...args)
+  }
+}
+
 // --- Nodes ---
 
 // Router Node: Analyzes input and sets the intent
 const routerNode = async (state: typeof GraphState.State) => {
+  log('═══════════════════════════════════════════════════════════')
+  log('ROUTER NODE - START')
+  log('═══════════════════════════════════════════════════════════')
+  
   const lastMessage = state.messages[state.messages.length - 1]
   const text =
     typeof lastMessage.content === 'string'
       ? lastMessage.content
       : String(lastMessage.content)
 
-  // Add logging wrapper around the tool node or handle it via a custom node if needed.
-  // For simplicity, we rely on LangGraph's message history to trace tool calls.
-  // But to explicitly add logs to our 'logs' state, we can use a custom function node that runs after tools?
-  // Or better: Let's extract logs from 'messages' at the very end in the API route, as ToolMessages already contain the info.
+  log('Input message:', text)
+  log('Total messages in state:', state.messages.length)
+  log('Current isEscalated:', state.isEscalated)
 
   const decision = await classifyIntent(text)
-  console.log('--- Router Decision ---')
-  console.log('Intent:', decision.intent)
-  console.log('Confidence:', decision.confidence)
-  console.log('Reason:', decision.reason)
-  console.log('-----------------------')
+  
+  log('--- Router Decision ---')
+  log('Intent:', decision.intent)
+  log('Confidence:', decision.confidence)
+  log('Reason:', decision.reason)
+  log('-----------------------')
+  log('ROUTER NODE - END, routing to:', decision.intent)
 
   return { intent: decision.intent }
 }
@@ -39,14 +55,37 @@ const baseToolNode = new ToolNode(ALL_TOOLS)
 
 // Custom tool node wrapper that detects escalation
 const toolNodeWithEscalation = async (state: typeof GraphState.State) => {
+  log('═══════════════════════════════════════════════════════════')
+  log('TOOL NODE - START')
+  log('═══════════════════════════════════════════════════════════')
+  
+  log('Current intent:', state.intent)
+  log('isEscalated before tool call:', state.isEscalated)
+  
+  // Get the last message to see what tool was called
+  const lastMsg = state.messages[state.messages.length - 1]
+  if ('tool_calls' in lastMsg && Array.isArray(lastMsg.tool_calls)) {
+    log('Tools being called:', lastMsg.tool_calls.map((tc: { name?: string; args?: unknown }) => ({ 
+      name: tc.name, 
+      args: JSON.stringify(tc.args).substring(0, 200) 
+    })))
+  }
+  
   // Run the base tool node
   const result = await baseToolNode.invoke(state)
 
+  log('Tool execution completed')
+  
   // Check if any tool message indicates escalation
   const messages = result.messages || []
+  log('Tool result messages count:', messages.length)
+  
   for (const msg of messages) {
+    log('Tool message name:', msg.name, 'content preview:', 
+      typeof msg.content === 'string' ? msg.content.substring(0, 200) : JSON.stringify(msg.content).substring(0, 200))
+    
     if (msg.name === 'escalate_to_human') {
-      console.log('[ESCALATION] Detected escalation tool call - setting isEscalated flag')
+      log('🚨 [ESCALATION] Detected escalation tool call - setting isEscalated flag')
       // Parse the escalation summary from the tool output
       let escalationData = null
       try {
@@ -57,6 +96,7 @@ const toolNodeWithEscalation = async (state: typeof GraphState.State) => {
       } catch {
         escalationData = { raw: msg.content }
       }
+      log('Escalation data:', JSON.stringify(escalationData))
 
       return {
         ...result,
@@ -66,6 +106,77 @@ const toolNodeWithEscalation = async (state: typeof GraphState.State) => {
     }
   }
 
+  log('TOOL NODE - END (no escalation)')
+  return result
+}
+
+// --- Agent Node Wrappers with Debug ---
+
+const orderManagementAgentNodeWithDebug = async (state: typeof GraphState.State) => {
+  log('═══════════════════════════════════════════════════════════')
+  log('ORDER MANAGEMENT AGENT - START')
+  log('═══════════════════════════════════════════════════════════')
+  log('Messages count:', state.messages.length)
+  log('isEscalated:', state.isEscalated)
+  
+  const result = await orderManagementAgentNode(state)
+  
+  const lastMsg = result.messages[result.messages.length - 1]
+  log('Agent response content:', typeof lastMsg.content === 'string' ? lastMsg.content.substring(0, 300) : 'non-string')
+  log('Agent tool_calls:', 'tool_calls' in lastMsg ? JSON.stringify(lastMsg.tool_calls) : 'none')
+  log('ORDER MANAGEMENT AGENT - END')
+  
+  return result
+}
+
+const resolutionRefundAgentNodeWithDebug = async (state: typeof GraphState.State) => {
+  log('═══════════════════════════════════════════════════════════')
+  log('RESOLUTION REFUND AGENT - START')
+  log('═══════════════════════════════════════════════════════════')
+  log('Messages count:', state.messages.length)
+  log('isEscalated:', state.isEscalated)
+  
+  const result = await resolutionRefundAgentNode(state)
+  
+  const lastMsg = result.messages[result.messages.length - 1]
+  log('Agent response content:', typeof lastMsg.content === 'string' ? lastMsg.content.substring(0, 300) : 'non-string')
+  log('Agent tool_calls:', 'tool_calls' in lastMsg ? JSON.stringify(lastMsg.tool_calls) : 'none')
+  log('RESOLUTION REFUND AGENT - END')
+  
+  return result
+}
+
+const subscriptionRetentionAgentNodeWithDebug = async (state: typeof GraphState.State) => {
+  log('═══════════════════════════════════════════════════════════')
+  log('SUBSCRIPTION RETENTION AGENT - START')
+  log('═══════════════════════════════════════════════════════════')
+  log('Messages count:', state.messages.length)
+  log('isEscalated:', state.isEscalated)
+  
+  const result = await subscriptionRetentionAgentNode(state)
+  
+  const lastMsg = result.messages[result.messages.length - 1]
+  log('Agent response content:', typeof lastMsg.content === 'string' ? lastMsg.content.substring(0, 300) : 'non-string')
+  log('Agent tool_calls:', 'tool_calls' in lastMsg ? JSON.stringify(lastMsg.tool_calls) : 'none')
+  log('SUBSCRIPTION RETENTION AGENT - END')
+  
+  return result
+}
+
+const salesProductAgentNodeWithDebug = async (state: typeof GraphState.State) => {
+  log('═══════════════════════════════════════════════════════════')
+  log('SALES PRODUCT AGENT - START')
+  log('═══════════════════════════════════════════════════════════')
+  log('Messages count:', state.messages.length)
+  log('isEscalated:', state.isEscalated)
+  
+  const result = await salesProductAgentNode(state)
+  
+  const lastMsg = result.messages[result.messages.length - 1]
+  log('Agent response content:', typeof lastMsg.content === 'string' ? lastMsg.content.substring(0, 300) : 'non-string')
+  log('Agent tool_calls:', 'tool_calls' in lastMsg ? JSON.stringify(lastMsg.tool_calls) : 'none')
+  log('SALES PRODUCT AGENT - END')
+  
   return result
 }
 
@@ -73,33 +184,48 @@ const toolNodeWithEscalation = async (state: typeof GraphState.State) => {
 
 // Determine which agent to go to after Router
 const routeToAgent = (state: typeof GraphState.State) => {
+  log('routeToAgent called - intent:', state.intent)
+  
+  let target: string
   switch (state.intent) {
     case 'ORDER_MANAGEMENT':
-      return 'order_management'
+      target = 'order_management'
+      break
     case 'RESOLUTION_REFUND':
-      return 'resolution_refund'
+      target = 'resolution_refund'
+      break
     case 'SUBSCRIPTION_RETENTION':
-      return 'subscription_retention'
+      target = 'subscription_retention'
+      break
     case 'SALES_PRODUCT':
-      return 'sales_product'
+      target = 'sales_product'
+      break
     default:
       // Fallback: Use Order Management or a Generic handler.
       // For now, let's route "OTHER" to sales/product as a general receptionist
-      return 'sales_product'
+      target = 'sales_product'
   }
+  
+  log('Routing to agent:', target)
+  return target
 }
 
 // Check if the agent requested a tool call or is done
 const shouldContinue = (state: typeof GraphState.State) => {
+  log('shouldContinue check - isEscalated:', state.isEscalated)
+  
   // --- ESCALATION CHECK (HACKATHON REQUIREMENT) ---
   // If the session is already escalated, STOP all automation
   if (state.isEscalated) {
-    console.log('-> Session is ESCALATED - stopping automation')
+    log('🛑 Session is ESCALATED - stopping automation immediately')
     return END
   }
 
   const messages = state.messages
   const lastMessage = messages[messages.length - 1]
+
+  log('Last message type:', lastMessage.constructor.name)
+  log('Has tool_calls:', 'tool_calls' in lastMessage)
 
   // If the LLM sent a tool_calls array, we must answer it
   if (
@@ -112,43 +238,63 @@ const shouldContinue = (state: typeof GraphState.State) => {
       (tc: { name?: string }) => tc.name === 'escalate_to_human'
     )
     if (hasEscalation) {
-      console.log('-> Agent is ESCALATING to human')
-    } else {
-      console.log('-> Agent deciding to call tools:', lastMessage.tool_calls.length)
+      log('🚨 Agent is about to ESCALATE to human via tool call')
     }
+    
+    log('Tool calls found:', lastMessage.tool_calls.map((tc: { name?: string }) => tc.name))
+    log('Decision: continue to TOOLS')
     return 'tools'
   }
 
   // Otherwise, we are done
-  console.log('-> Agent deciding to END')
+  log('Decision: END (no tool calls)')
   return END
 }
 
 // --- Workflow Definition ---
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const createWorkflow = (checkpointer?: any) => {
+  log('Creating workflow graph...')
+  
   const routeToolOutput = (state: typeof GraphState.State) => {
+    log('routeToolOutput called - intent:', state.intent, 'isEscalated:', state.isEscalated)
+    
+    // If escalated, end immediately
+    if (state.isEscalated) {
+      log('🛑 Escalated - ending workflow from tool output')
+      return END
+    }
+    
+    let target: string | typeof END
     switch (state.intent) {
       case 'ORDER_MANAGEMENT':
-        return 'order_management'
+        target = 'order_management'
+        break
       case 'RESOLUTION_REFUND':
-        return 'resolution_refund'
+        target = 'resolution_refund'
+        break
       case 'SUBSCRIPTION_RETENTION':
-        return 'subscription_retention'
+        target = 'subscription_retention'
+        break
       case 'SALES_PRODUCT':
-        return 'sales_product'
+        target = 'sales_product'
+        break
       default:
-        return END
+        target = END
     }
+    
+    log('Routing tool output back to:', target)
+    return target
   }
 
   const workflow = new StateGraph(GraphState)
     // Add Nodes
     .addNode('router', routerNode)
-    .addNode('order_management', orderManagementAgentNode)
-    .addNode('resolution_refund', resolutionRefundAgentNode)
-    .addNode('subscription_retention', subscriptionRetentionAgentNode)
-    .addNode('sales_product', salesProductAgentNode)
+    .addNode('order_management', orderManagementAgentNodeWithDebug)
+    .addNode('resolution_refund', resolutionRefundAgentNodeWithDebug)
+    .addNode('subscription_retention', subscriptionRetentionAgentNodeWithDebug)
+    .addNode('sales_product', salesProductAgentNodeWithDebug)
     .addNode('tools', toolNodeWithEscalation)
 
     // Add Edges
@@ -181,5 +327,6 @@ export const createWorkflow = (checkpointer?: any) => {
       END
     ])
 
+  log('Workflow graph compiled successfully')
   return workflow.compile({ checkpointer })
 }
